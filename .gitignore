@@ -1,0 +1,36 @@
+# Frontend
+node_modules/
+dist/
+build/
+
+# Environment Variables
+.env
+.env.*
+
+# Backend (Spring Boot)
+target/
+*.class
+
+# IDE Files
+.idea/
+.vscode/
+*.iml
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+logs/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+
+# Temporary Files
+*.tmp

@@ -1,0 +1,120 @@
+.sidebar {
+    width: 230px;
+    height: 100vh;
+    background: linear-gradient(180deg, #071d3b, #06162d);
+    color: #ffffff;
+    padding: 22px 16px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.logo-box,
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.logo-circle,
+.logo-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, #4f46e5, #2563eb);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.logo-box h2,
+.logo h2 {
+    font-size: 22px;
+    margin: 0;
+}
+
+.logo-box span,
+.logo span {
+    font-size: 12px;
+    color: #9fb4d8;
+}
+
+
+/* MENU */
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li,
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 13px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #c9d6ea;
+    cursor: pointer;
+    margin-bottom: 6px;
+    text-decoration: none;
+    transition: 0.25s ease;
+    pointer-events: auto;
+}
+
+.sidebar-menu li svg,
+.menu-item svg {
+    font-size: 14px;
+    min-width: 16px;
+}
+
+.sidebar-menu li:hover,
+.sidebar-menu li.active,
+.menu-item:hover,
+.menu-item.active {
+    background: linear-gradient(90deg, #2563eb, #4f46e5);
+    color: #ffffff;
+    transform: translateX(3px);
+}
+
+
+/* LOGOUT */
+
+.logout-btn {
+    position: absolute;
+    bottom: 20px;
+    left: 16px;
+    right: 16px;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    transition: 0.25s ease;
+}
+
+.logout-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+    .sidebar {
+        width: 220px;
+    }
+}

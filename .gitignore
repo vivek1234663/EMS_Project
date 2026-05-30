@@ -34,3 +34,6 @@ Thumbs.db
 
 # Temporary Files
 *.tmp
+
+
+backend/demo/src/main/resources/application.properties

@@ -15,6 +15,10 @@ import Designations from "./pages/Designations";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Attendance from "./pages/Attendance";
+import Leave from "./pages/Leave";
+import Performance from "./pages/Performance";
+import Salary from "./pages/Salary";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -47,6 +51,10 @@ export default function App() {
 
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/leave" element={<Leave />} />
+          <Route path="/performance" element={<Performance />} />
+          <Route path="/salary" element={<Salary />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

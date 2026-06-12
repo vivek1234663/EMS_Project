@@ -10,8 +10,6 @@ import {
   FaEye,
   FaPlus,
   FaSearch,
-  FaUserPlus,
-  FaCalendarCheck,
 } from "react-icons/fa";
 
 const initialEmployees = [
@@ -42,13 +40,46 @@ const initialEmployees = [
     status: "Inactive",
     joinDate: "2026-05-14",
   },
+  {
+    id: "EMP004",
+    name: "Amit Verma",
+    department: "Finance Department",
+    designation: "Accountant",
+    email: "amit@gmail.com",
+    status: "Active",
+    joinDate: "2026-05-15",
+  },
+  {
+    id: "EMP005",
+    name: "Neha Singh",
+    department: "Marketing Department",
+    designation: "Marketing Executive",
+    email: "neha@gmail.com",
+    status: "Active",
+    joinDate: "2026-05-16",
+  },
 ];
+
+const initialDepartments = [
+  { id: 1, name: "IT Department", color: "#2563eb" },
+  { id: 2, name: "HR Department", color: "#22c55e" },
+  { id: 3, name: "Finance Department", color: "#f97316" },
+  { id: 4, name: "Marketing Department", color: "#7c3aed" },
+];
+
+const colors = ["#2563eb", "#22c55e", "#f97316", "#7c3aed", "#ec4899"];
 
 export default function Dashboard() {
   const [employees, setEmployees] = useState(initialEmployees);
+  const [departmentsList, setDepartmentsList] = useState(initialDepartments);
+
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState(null);
   const [viewEmployee, setViewEmployee] = useState(null);
+  const [showFormModal, setShowFormModal] = useState(false);
+
+  const [deptName, setDeptName] = useState("");
+  const [deptEditId, setDeptEditId] = useState(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -61,19 +92,23 @@ export default function Dashboard() {
 
   const totalEmployees = employees.length;
   const activeEmployees = employees.filter((e) => e.status === "Active").length;
-  const inactiveEmployees = employees.filter(
-    (e) => e.status === "Inactive"
-  ).length;
-
-  const departmentStats = employees.reduce((acc, emp) => {
-    acc[emp.department] = (acc[emp.department] || 0) + 1;
-    return acc;
-  }, {});
-
-  const departments = Object.keys(departmentStats).length;
+  const inactiveEmployees = employees.filter((e) => e.status === "Inactive").length;
+  const departments = departmentsList.length;
 
   const activePercentage =
     totalEmployees > 0 ? Math.round((activeEmployees / totalEmployees) * 100) : 0;
+
+  const getDepartmentCount = (departmentName) => {
+    return employees.filter((emp) => emp.department === departmentName).length;
+  };
+
+  const conicGradient = departmentsList
+    .map((dept, index) => {
+      const start = (index / departmentsList.length) * 100;
+      const end = ((index + 1) / departmentsList.length) * 100;
+      return `${dept.color} ${start}% ${end}%`;
+    })
+    .join(", ");
 
   const filteredEmployees = employees.filter((emp) =>
     `${emp.name} ${emp.department} ${emp.designation} ${emp.email}`
@@ -112,6 +147,16 @@ export default function Dashboard() {
     setEditId(null);
   };
 
+  const openAddModal = () => {
+    resetForm();
+    setShowFormModal(true);
+  };
+
+  const closeFormModal = () => {
+    resetForm();
+    setShowFormModal(false);
+  };
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -132,9 +177,7 @@ export default function Dashboard() {
 
     if (editId) {
       setEmployees(
-        employees.map((emp) =>
-          emp.id === editId ? { ...emp, ...form } : emp
-        )
+        employees.map((emp) => (emp.id === editId ? { ...emp, ...form } : emp))
       );
     } else {
       setEmployees([
@@ -147,6 +190,7 @@ export default function Dashboard() {
     }
 
     resetForm();
+    setShowFormModal(false);
   };
 
   const handleEdit = (emp) => {
@@ -160,23 +204,77 @@ export default function Dashboard() {
       joinDate: emp.joinDate,
     });
 
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: "smooth",
-    });
+    setShowFormModal(true);
   };
 
   const handleDelete = (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this employee?"
-    );
+    if (!window.confirm("Are you sure you want to delete this employee?")) return;
 
-    if (confirmDelete) {
-      setEmployees(employees.filter((emp) => emp.id !== id));
+    setEmployees(employees.filter((emp) => emp.id !== id));
 
-      if (editId === id) {
-        resetForm();
-      }
+    if (editId === id) {
+      resetForm();
+    }
+  };
+
+  const handleDepartmentSubmit = (e) => {
+    e.preventDefault();
+
+    if (!deptName.trim()) {
+      alert("Please enter department name");
+      return;
+    }
+
+    if (deptEditId) {
+      const oldDept = departmentsList.find((dept) => dept.id === deptEditId);
+
+      setDepartmentsList(
+        departmentsList.map((dept) =>
+          dept.id === deptEditId ? { ...dept, name: deptName } : dept
+        )
+      );
+
+      setEmployees(
+        employees.map((emp) =>
+          emp.department === oldDept.name ? { ...emp, department: deptName } : emp
+        )
+      );
+
+      setDeptEditId(null);
+    } else {
+      setDepartmentsList([
+        ...departmentsList,
+        {
+          id: Date.now(),
+          name: deptName,
+          color: colors[departmentsList.length % colors.length],
+        },
+      ]);
+    }
+
+    setDeptName("");
+  };
+
+  const handleDepartmentEdit = (dept) => {
+    setDeptEditId(dept.id);
+    setDeptName(dept.name);
+  };
+
+  const handleDepartmentDelete = (dept) => {
+    const usedEmployees = employees.filter(
+      (emp) => emp.department === dept.name
+    ).length;
+
+    if (usedEmployees > 0) {
+      alert("This department has employees. Please move/delete employees first.");
+      return;
+    }
+
+    setDepartmentsList(departmentsList.filter((item) => item.id !== dept.id));
+
+    if (deptEditId === dept.id) {
+      setDeptEditId(null);
+      setDeptName("");
     }
   };
 
@@ -242,7 +340,12 @@ export default function Dashboard() {
           <h3>Employees by Department</h3>
 
           <div className="donut-wrap">
-            <div className="donut">
+            <div
+              className="donut"
+              style={{
+                background: `conic-gradient(${conicGradient})`,
+              }}
+            >
               <div className="donut-center">
                 <h2>{totalEmployees}</h2>
                 <p>Total</p>
@@ -250,21 +353,59 @@ export default function Dashboard() {
             </div>
 
             <ul className="dept-list">
-              {Object.entries(departmentStats).map(([department, count], index) => (
-                <li key={department}>
-                  <span
-                    className={`dot ${
-                      ["blue-dot", "green-dot", "orange-dot", "purple-dot"][
-                        index % 4
-                      ]
-                    }`}
-                  ></span>
-                  <span>{department}</span>
-                  <b>{count}</b>
+              {departmentsList.map((dept) => (
+                <li key={dept.id}>
+                  <span className="dot" style={{ background: dept.color }}></span>
+                  <span>{dept.name}</span>
+                  <b>{getDepartmentCount(dept.name)}</b>
+
+                  <button
+                    type="button"
+                    className="dept-edit"
+                    onClick={() => handleDepartmentEdit(dept)}
+                    title="Edit Department"
+                  >
+                    <FaEdit />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="dept-delete"
+                    onClick={() => handleDepartmentDelete(dept)}
+                    title="Delete Department"
+                  >
+                    <FaTrash />
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
+
+          <form className="dept-form" onSubmit={handleDepartmentSubmit}>
+            <input
+              type="text"
+              placeholder="Department name"
+              value={deptName}
+              onChange={(e) => setDeptName(e.target.value)}
+            />
+
+            <button type="submit">
+              {deptEditId ? "Update Department" : "Add Department"}
+            </button>
+
+            {deptEditId && (
+              <button
+                type="button"
+                className="dept-cancel"
+                onClick={() => {
+                  setDeptEditId(null);
+                  setDeptName("");
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </form>
         </div>
 
         <div className="card recent-card">
@@ -303,171 +444,193 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="bottom-grid">
+      <div className="bottom-grid only-table">
         <div className="card employee-table-card">
           <div className="table-header">
             <div>
               <h3>Recent Employees</h3>
+              <p className="table-subtitle">
+                Manage and view your organization's recent employees
+              </p>
             </div>
 
-            <div className="search-box">
-              <FaSearch />
-              <input
-                type="text"
-                placeholder="Search employee..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+            <div className="table-header-actions">
+              <div className="search-box">
+                <FaSearch />
+                <input
+                  type="text"
+                  placeholder="Search employee..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              <button type="button" className="header-add-btn" onClick={openAddModal}>
+                <FaPlus /> Add Employee
+              </button>
             </div>
           </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Designation</th>
-                <th>Email</th>
-                <th>Status</th>
-                <th>Join Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+          <div className="employee-table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Designation</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Join Date</th>
+                  <th className="actions-heading">Actions</th>
+                </tr>
+              </thead>
 
-            <tbody>
-              {filteredEmployees.length > 0 ? (
-                filteredEmployees.map((emp) => (
-                  <tr key={emp.id}>
-                    <td>{emp.id}</td>
-                    <td>{emp.name}</td>
-                    <td>{emp.department}</td>
-                    <td>{emp.designation}</td>
-                    <td>{emp.email}</td>
-                    <td>
-                      <span
-                        className={
-                          emp.status === "Active"
-                            ? "badge active"
-                            : "badge inactive"
-                        }
-                      >
-                        {emp.status}
-                      </span>
-                    </td>
-                    <td>{formatDate(emp.joinDate)}</td>
-                    <td>
-                      <div className="crud-actions">
-                        <button
-                          type="button"
-                          className="view-btn"
-                          onClick={() => setViewEmployee(emp)}
-                          title="View"
+              <tbody>
+                {filteredEmployees.length > 0 ? (
+                  filteredEmployees.map((emp) => (
+                    <tr key={emp.id}>
+                      <td>{emp.id}</td>
+                      <td>{emp.name}</td>
+                      <td>{emp.department}</td>
+                      <td>{emp.designation}</td>
+                      <td>{emp.email}</td>
+                      <td>
+                        <span
+                          className={
+                            emp.status === "Active"
+                              ? "badge active"
+                              : "badge inactive"
+                          }
                         >
-                          <FaEye />
-                        </button>
+                          {emp.status}
+                        </span>
+                      </td>
+                      <td>{formatDate(emp.joinDate)}</td>
+                      <td className="actions-cell">
+                        <div className="crud-actions">
+                          <button
+                            type="button"
+                            className="view-btn"
+                            onClick={() => setViewEmployee(emp)}
+                            title="View"
+                          >
+                            <FaEye />
+                          </button>
 
-                        <button
-                          type="button"
-                          className="edit-btn"
-                          onClick={() => handleEdit(emp)}
-                          title="Edit"
-                        >
-                          <FaEdit />
-                        </button>
+                          <button
+                            type="button"
+                            className="edit-btn"
+                            onClick={() => handleEdit(emp)}
+                            title="Edit"
+                          >
+                            <FaEdit />
+                          </button>
 
-                        <button
-                          type="button"
-                          className="delete-btn"
-                          onClick={() => handleDelete(emp.id)}
-                          title="Delete"
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
+                          <button
+                            type="button"
+                            className="delete-btn"
+                            onClick={() => handleDelete(emp.id)}
+                            title="Delete"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="8" className="empty-message">
+                      No employee found.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8" className="empty-message">
-                    No employee found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <div className="card action-card">
-          <h3>{editId ? "Update Employee" : "Add Employee"}</h3>
-
-          <form onSubmit={handleSubmit} className="mini-form">
-            <input
-              name="name"
-              placeholder="Name"
-              value={form.name}
-              onChange={handleChange}
-            />
-
-            <input
-              name="department"
-              placeholder="Department"
-              value={form.department}
-              onChange={handleChange}
-            />
-
-            <input
-              name="designation"
-              placeholder="Designation"
-              value={form.designation}
-              onChange={handleChange}
-            />
-
-            <input
-              name="email"
-              type="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={handleChange}
-            />
-
-            <select name="status" value={form.status} onChange={handleChange}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-
-            <input
-              name="joinDate"
-              type="date"
-              value={form.joinDate}
-              onChange={handleChange}
-            />
-
-            <button type="submit">
-              <FaPlus />
-              {editId ? "Update" : "Add Employee"}
-            </button>
-
-            {editId && (
-              <button type="button" className="cancel-btn" onClick={resetForm}>
-                Cancel
-              </button>
-            )}
-          </form>
-
-          <div className="quick-actions">
-            <h3>Quick Actions</h3>
-            <button type="button" onClick={resetForm}>
-              <FaUserPlus /> Add New
-            </button>
-
-            <button type="button">
-              <FaCalendarCheck /> Attendance
-            </button>
+          <div className="table-footer">
+            <p>Showing 1 to {filteredEmployees.length} of {employees.length} employees</p>
           </div>
         </div>
       </div>
+
+      {showFormModal && (
+        <div className="modal-overlay">
+          <div className="employee-form-modal">
+            <div className="modal-title-row">
+              <h3>{editId ? "Update Employee" : "Add Employee"}</h3>
+
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeFormModal}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mini-form">
+              <input
+                name="name"
+                placeholder="Name"
+                value={form.name}
+                onChange={handleChange}
+              />
+
+              <select
+                name="department"
+                value={form.department}
+                onChange={handleChange}
+              >
+                <option value="">Select Department</option>
+                {departmentsList.map((dept) => (
+                  <option key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                name="designation"
+                placeholder="Designation"
+                value={form.designation}
+                onChange={handleChange}
+              />
+
+              <input
+                name="email"
+                type="email"
+                placeholder="Email"
+                value={form.email}
+                onChange={handleChange}
+              />
+
+              <select name="status" value={form.status} onChange={handleChange}>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+
+              <input
+                name="joinDate"
+                type="date"
+                value={form.joinDate}
+                onChange={handleChange}
+              />
+
+              <button type="submit">
+                <FaPlus />
+                {editId ? "Update Employee" : "Add Employee"}
+              </button>
+
+              <button type="button" className="cancel-btn" onClick={closeFormModal}>
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {viewEmployee && (
         <div className="modal-overlay">

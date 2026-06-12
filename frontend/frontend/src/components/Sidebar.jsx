@@ -2,6 +2,8 @@ import { NavLink } from "react-router-dom";
 import {
   FaTachometerAlt,
   FaUsers,
+  FaMoneyBillWave,
+  FaUsersCog,
   FaBuilding,
   FaUserTie,
   FaCalendarCheck,
@@ -17,13 +19,18 @@ import "./Sidebar.css";
 export default function Sidebar() {
   return (
     <aside className="sidebar">
-      <div className="logo">
-        <div className="logo-icon">
-          <FaCog />
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-icon">
+          <FaUsersCog />
         </div>
-        <div>
-          <h2>EMS</h2>
-          <span>Pro</span>
+
+        <div className="sidebar-logo-text">
+          <h2>
+            Employee
+            <br />
+            Management
+          </h2>
+          <span>System</span>
         </div>
       </div>
 
@@ -53,9 +60,14 @@ export default function Sidebar() {
           <span>Attendance</span>
         </NavLink>
 
-        <NavLink to="/leave-requests" className="menu-item">
+        <NavLink to="/salary" className="menu-item">
+  <FaMoneyBillWave />
+  <span>Salary</span>
+</NavLink>
+
+        <NavLink to="/leave" className="menu-item">
           <FaClipboardList />
-          <span>Leave Requests</span>
+          <span>Leave</span>
         </NavLink>
 
         <NavLink to="/performance" className="menu-item">
@@ -79,10 +91,7 @@ export default function Sidebar() {
         </NavLink>
       </nav>
 
-      <button className="logout-btn">
-        <FaSignOutAlt />
-        <span>Logout</span>
-      </button>
+      
     </aside>
   );
 }

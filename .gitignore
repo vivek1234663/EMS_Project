@@ -36,4 +36,12 @@ Thumbs.db
 *.tmp
 
 
+.env
+.env.*
+node_modules/
+target/
+dist/
+build/
+*.zip
+
 backend/demo/src/main/resources/application.properties

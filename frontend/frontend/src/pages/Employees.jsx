@@ -64,14 +64,31 @@ export default function Employees() {
   });
 
   const totalEmployees = employees.length;
-  const activeEmployees = employees.filter((emp) => emp.status === "Active").length;
-  const inactiveEmployees = employees.filter((emp) => emp.status === "Inactive").length;
+  const activeEmployees = employees.filter(
+    (emp) => emp.status === "Active"
+  ).length;
+  const inactiveEmployees = employees.filter(
+    (emp) => emp.status === "Inactive"
+  ).length;
 
   const filteredEmployees = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
     return employees.filter((emp) => {
-      const matchSearch = `${emp.name} ${emp.department} ${emp.designation} ${emp.email}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
+      const searchableText = [
+        emp.id,
+        emp.name,
+        emp.department,
+        emp.designation,
+        emp.email,
+        emp.phone,
+        emp.status,
+        emp.joinDate,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const matchSearch = searchableText.includes(keyword);
 
       const matchStatus =
         statusFilter === "All" || emp.status === statusFilter;
@@ -168,7 +185,20 @@ export default function Employees() {
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this employee?")) {
       setEmployees(employees.filter((emp) => emp.id !== id));
+
+      if (editId === id) {
+        resetForm();
+      }
+
+      if (viewEmployee?.id === id) {
+        setViewEmployee(null);
+      }
     }
+  };
+
+  const handleAddClick = () => {
+    resetForm();
+    setShowForm(true);
   };
 
   return (
@@ -179,7 +209,7 @@ export default function Employees() {
           <h1>Manage Your Team</h1>
         </div>
 
-        <button className="add-employee-btn" onClick={() => setShowForm(true)}>
+        <button className="add-employee-btn" onClick={handleAddClick}>
           <FaPlus />
           Add Employee
         </button>
@@ -223,10 +253,21 @@ export default function Employees() {
               <FaSearch />
               <input
                 type="text"
-                placeholder="Search employee..."
+                placeholder="Search by name, ID, email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+
+              {search && (
+                <button
+                  type="button"
+                  className="clear-search-btn"
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                >
+                  <FaTimes />
+                </button>
+              )}
             </div>
 
             <select
@@ -287,13 +328,27 @@ export default function Employees() {
                     <td>{formatDate(emp.joinDate)}</td>
                     <td>
                       <div className="employee-actions">
-                        <button className="view" onClick={() => setViewEmployee(emp)}>
+                        <button
+                          type="button"
+                          className="view"
+                          onClick={() => setViewEmployee(emp)}
+                        >
                           <FaEye />
                         </button>
-                        <button className="edit" onClick={() => handleEdit(emp)}>
+
+                        <button
+                          type="button"
+                          className="edit"
+                          onClick={() => handleEdit(emp)}
+                        >
                           <FaEdit />
                         </button>
-                        <button className="delete" onClick={() => handleDelete(emp.id)}>
+
+                        <button
+                          type="button"
+                          className="delete"
+                          onClick={() => handleDelete(emp.id)}
+                        >
                           <FaTrash />
                         </button>
                       </div>
@@ -317,7 +372,7 @@ export default function Employees() {
           <div className="employee-modal">
             <div className="modal-header">
               <h3>{editId ? "Update Employee" : "Add New Employee"}</h3>
-              <button onClick={resetForm}>
+              <button type="button" onClick={resetForm}>
                 <FaTimes />
               </button>
             </div>
@@ -406,10 +461,12 @@ export default function Employees() {
               <b>{formatDate(viewEmployee.joinDate)}</b>
             </div>
 
-            <button onClick={() => setViewEmployee(null)}>Close</button>
+            <button type="button" onClick={() => setViewEmployee(null)}>
+              Close
+            </button>
           </div>
         </div>
       )}
     </main>
   );
-}
+}  

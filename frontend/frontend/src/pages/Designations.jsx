@@ -1,58 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import "./Designations.css";
 
 export default function Designations() {
   const [designations, setDesignations] = useState([
-    {
-      id: "DES001",
-      title: "Full Stack Developer",
-      department: "IT Department",
-      employees: 12,
-    },
-    {
-      id: "DES002",
-      title: "Backend Developer",
-      department: "IT Department",
-      employees: 6,
-    },
-    {
-      id: "DES003",
-      title: "UI/UX Designer",
-      department: "IT Department",
-      employees: 4,
-    },
-    {
-      id: "DES004",
-      title: "System Analyst",
-      department: "IT Department",
-      employees: 5,
-    },
-    {
-      id: "DES005",
-      title: "HR Executive",
-      department: "HR Department",
-      employees: 10,
-    },
-    {
-      id: "DES006",
-      title: "HR Manager",
-      department: "HR Department",
-      employees: 3,
-    },
-    {
-      id: "DES007",
-      title: "Accountant",
-      department: "Finance Department",
-      employees: 7,
-    },
-    {
-      id: "DES008",
-      title: "Marketing Manager",
-      department: "Marketing Department",
-      employees: 8,
-    },
+    { id: "DES001", title: "Full Stack Developer", department: "IT Department", employees: 12 },
+    { id: "DES002", title: "Backend Developer", department: "IT Department", employees: 6 },
+    { id: "DES003", title: "UI/UX Designer", department: "IT Department", employees: 4 },
+    { id: "DES004", title: "System Analyst", department: "IT Department", employees: 5 },
+    { id: "DES005", title: "HR Executive", department: "HR Department", employees: 10 },
+    { id: "DES006", title: "HR Manager", department: "HR Department", employees: 3 },
+    { id: "DES007", title: "Accountant", department: "Finance Department", employees: 7 },
+    { id: "DES008", title: "Marketing Manager", department: "Marketing Department", employees: 8 },
   ]);
 
+  const [search, setSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("All Departments");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -62,6 +24,33 @@ export default function Designations() {
     department: "",
     employees: "",
   });
+
+  const filteredDesignations = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    return designations.filter((item) => {
+      const matchSearch =
+        item.id.toLowerCase().includes(keyword) ||
+        item.title.toLowerCase().includes(keyword) ||
+        item.department.toLowerCase().includes(keyword) ||
+        String(item.employees).includes(keyword);
+
+      const matchDepartment =
+        departmentFilter === "All Departments" ||
+        item.department === departmentFilter;
+
+      return matchSearch && matchDepartment;
+    });
+  }, [designations, search, departmentFilter]);
+
+  const totalAssignedEmployees = designations.reduce(
+    (sum, item) => sum + Number(item.employees || 0),
+    0
+  );
+
+  const totalDepartments = new Set(
+    designations.map((item) => item.department)
+  ).size;
 
   const openAddModal = () => {
     setEditingId(null);
@@ -76,7 +65,12 @@ export default function Designations() {
 
   const handleEdit = (item) => {
     setEditingId(item.id);
-    setFormData(item);
+    setFormData({
+      id: item.id,
+      title: item.title,
+      department: item.department,
+      employees: item.employees,
+    });
     setShowModal(true);
   };
 
@@ -93,17 +87,46 @@ export default function Designations() {
     });
   };
 
+  const generateDesignationId = () => {
+    const lastNumber =
+      designations.length > 0
+        ? Math.max(
+            ...designations.map((item) =>
+              Number(String(item.id).replace("DES", ""))
+            )
+          )
+        : 0;
+
+    return `DES${String(lastNumber + 1).padStart(3, "0")}`;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (
+      !formData.title.trim() ||
+      !formData.department.trim() ||
+      formData.employees === ""
+    ) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    const finalData = {
+      id: formData.id || generateDesignationId(),
+      title: formData.title.trim(),
+      department: formData.department,
+      employees: Number(formData.employees),
+    };
 
     if (editingId) {
       setDesignations(
         designations.map((item) =>
-          item.id === editingId ? formData : item
+          item.id === editingId ? finalData : item
         )
       );
     } else {
-      setDesignations([...designations, formData]);
+      setDesignations([...designations, finalData]);
     }
 
     setShowModal(false);
@@ -129,12 +152,12 @@ export default function Designations() {
         </div>
 
         <div className="designation-stat-card green">
-          <h2>8</h2>
+          <h2>{totalDepartments}</h2>
           <p>Departments</p>
         </div>
 
         <div className="designation-stat-card purple">
-          <h2>55</h2>
+          <h2>{totalAssignedEmployees}</h2>
           <p>Assigned Employees</p>
         </div>
       </div>
@@ -142,10 +165,18 @@ export default function Designations() {
       <div className="designation-filter-row">
         <div className="designation-search">
           <span>🔍</span>
-          <input type="text" placeholder="Search designations..." />
+          <input
+            type="text"
+            placeholder="Search designations..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
-        <select>
+        <select
+          value={departmentFilter}
+          onChange={(e) => setDepartmentFilter(e.target.value)}
+        >
           <option>All Departments</option>
           <option>IT Department</option>
           <option>HR Department</option>
@@ -167,44 +198,48 @@ export default function Designations() {
           </thead>
 
           <tbody>
-            {designations.map((item) => (
-              <tr key={item.id}>
-                <td>{item.id}</td>
+            {filteredDesignations.length > 0 ? (
+              filteredDesignations.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td className="designation-title">{item.title}</td>
+                  <td>
+                    <span className="dept-pill">{item.department}</span>
+                  </td>
+                  <td>
+                    <span className="employee-pill">{item.employees}</span>
+                  </td>
+                  <td>
+                    <div className="designation-actions">
+                      <button
+                        className="designation-edit"
+                        onClick={() => handleEdit(item)}
+                      >
+                        ✏️
+                      </button>
 
-                <td className="designation-title">{item.title}</td>
-
-                <td>
-                  <span className="dept-pill">{item.department}</span>
-                </td>
-
-                <td>
-                  <span className="employee-pill">{item.employees}</span>
-                </td>
-
-                <td>
-                  <div className="designation-actions">
-                    <button
-                      className="designation-edit"
-                      onClick={() => handleEdit(item)}
-                    >
-                      ✏️
-                    </button>
-
-                    <button
-                      className="designation-delete"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      🗑
-                    </button>
-                  </div>
+                      <button
+                        className="designation-delete"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5" style={{ textAlign: "center", padding: "25px" }}>
+                  No designations found.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
 
         <p className="designation-footer">
-          Showing 1 to {designations.length} of {designations.length} designations
+          Showing {filteredDesignations.length} of {designations.length} designations
         </p>
       </div>
 
@@ -225,7 +260,7 @@ export default function Designations() {
                 placeholder="Designation ID"
                 value={formData.id}
                 onChange={handleChange}
-                required
+                disabled={Boolean(editingId)}
               />
 
               <input

@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.Security.JwtUtil;
 import com.example.demo.dto.LoginRequest;
 import com.example.demo.dto.RegisterRequest;
 import com.example.demo.entity.User;
@@ -17,8 +18,8 @@ import java.util.Map;
 public class AuthController {
 
     private final UserRepository userRepository;
-
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @PostMapping("/register")
     public String register(@RequestBody RegisterRequest request) {
@@ -44,9 +45,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Map<String, Object> login(
-            @RequestBody LoginRequest request
-    ) {
+    public Map<String, Object> login(@RequestBody LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() ->
@@ -57,16 +56,20 @@ public class AuthController {
                 request.getPassword(),
                 user.getPassword()
         )) {
-
-            throw new RuntimeException(
-                    "Invalid email or password"
-            );
+            throw new RuntimeException("Invalid email or password");
         }
+
+        String token = jwtUtil.generateToken(user.getEmail());
 
         return Map.of(
                 "message", "Login successful",
-                "token", "demo-token",
-                "user", user
+                "token", token,
+                "user", Map.of(
+                        "id", user.getId(),
+                        "name", user.getName(),
+                        "email", user.getEmail(),
+                        "role", user.getRole()
+                )
         );
     }
 }

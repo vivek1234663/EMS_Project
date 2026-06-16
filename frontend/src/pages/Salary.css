@@ -1,0 +1,393 @@
+.salary-page {
+    min-height: 100vh;
+    padding: 38px 42px;
+    background: linear-gradient(135deg, #f8fbff, #eef4ff);
+    color: #101a3f;
+    font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.salary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+}
+
+.salary-header h1 {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 900;
+    color: #07142f;
+}
+
+.salary-header span {
+    display: block;
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #3158ff, #8b3dff);
+    border-radius: 20px;
+    margin: 10px 0 14px;
+}
+
+.salary-header p {
+    margin: 0;
+    color: #65728f;
+    font-weight: 600;
+}
+
+.salary-header button {
+    border: none;
+    background: linear-gradient(135deg, #3158ff, #763df2);
+    color: white;
+    padding: 15px 24px;
+    border-radius: 14px;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 14px 28px rgba(64, 85, 255, 0.28);
+}
+
+.salary-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.salary-card {
+    height: 120px;
+    border-radius: 22px;
+    background: white;
+    border: 1px solid #dce4f5;
+    box-shadow: 0 18px 42px rgba(18, 37, 90, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 24px;
+}
+
+.salary-card>svg {
+    width: 56px;
+    height: 56px;
+    padding: 16px;
+    border-radius: 16px;
+    color: white;
+}
+
+.salary-card.blue>svg {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+}
+
+.salary-card.green>svg {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+.salary-card.purple>svg {
+    background: linear-gradient(135deg, #7c3aed, #9333ea);
+}
+
+.salary-card.orange>svg {
+    background: linear-gradient(135deg, #f97316, #fb923c);
+}
+
+.salary-card h2 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 900;
+}
+
+.salary-card p {
+    margin: 6px 0 0;
+    color: #65728f;
+    font-weight: 800;
+}
+
+.salary-content {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+}
+
+.salary-form-card,
+.salary-list-card {
+    background: white;
+    border-radius: 24px;
+    border: 1px solid #dce4f5;
+    box-shadow: 0 18px 45px rgba(18, 37, 90, 0.08);
+}
+
+.salary-form-card {
+    padding: 24px;
+}
+
+.salary-form-card h2,
+.salary-list-header h2 {
+    margin: 0 0 20px;
+    font-size: 24px;
+    font-weight: 900;
+    color: #07142f;
+}
+
+.salary-form-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.salary-form-card input,
+.salary-form-card select {
+    height: 48px;
+    border: 1px solid #dce4f5;
+    border-radius: 14px;
+    padding: 0 16px;
+    outline: none;
+    font-weight: 700;
+    background: #f8faff;
+}
+
+.salary-form-card button {
+    height: 48px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #3158ff, #763df2);
+    color: white;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.cancel-btn {
+    background: linear-gradient(135deg, #ef4444, #f43f5e) !important;
+}
+
+.salary-list-card {
+    padding: 24px;
+}
+
+.salary-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.salary-tools {
+    display: flex;
+    gap: 14px;
+}
+
+.salary-search {
+    width: 260px;
+    height: 48px;
+    border: 1px solid #dce4f5;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    background: #f8faff;
+}
+
+.salary-search svg {
+    color: #6d6be8;
+}
+
+.salary-search input {
+    border: none;
+    outline: none;
+    background: transparent;
+    width: 100%;
+    font-weight: 700;
+}
+
+.salary-tools select {
+    height: 48px;
+    width: 160px;
+    border: 1px solid #dce4f5;
+    border-radius: 14px;
+    padding: 0 14px;
+    background: #f8faff;
+    font-weight: 800;
+}
+
+.salary-table-wrap {
+    overflow-x: auto;
+}
+
+.salary-list-card table {
+    width: 100%;
+    min-width: 1050px;
+    border-collapse: collapse;
+}
+
+.salary-list-card th {
+    background: #f8faff;
+    padding: 18px 16px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 900;
+    color: #11184a;
+    border-bottom: 1px solid #e4eaf5;
+}
+
+.salary-list-card td {
+    padding: 18px 16px;
+    border-bottom: 1px solid #edf1f8;
+    font-weight: 800;
+    color: #101a3f;
+}
+
+.salary-list-card small {
+    display: block;
+    margin-top: 6px;
+    color: #60708f;
+    font-weight: 800;
+}
+
+.net {
+    color: #0aa654 !important;
+    font-weight: 900 !important;
+}
+
+.paid,
+.pending {
+    padding: 9px 17px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.paid {
+    color: #16a34a;
+    background: #dcfce7;
+}
+
+.pending {
+    color: #b45309;
+    background: #fef3c7;
+}
+
+.salary-actions {
+    display: flex;
+    gap: 9px;
+}
+
+.salary-actions button {
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+
+.salary-actions .view {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+}
+
+.salary-actions .edit {
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+
+.salary-actions .download {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+.salary-actions .delete {
+    background: linear-gradient(135deg, #ef4444, #f43f5e);
+}
+
+.no-data {
+    text-align: center;
+    padding: 35px !important;
+    color: #8b95ad !important;
+}
+
+.salary-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(14, 21, 48, 0.45);
+    display: grid;
+    place-items: center;
+    z-index: 999;
+}
+
+.salary-modal {
+    width: 460px;
+    background: white;
+    border-radius: 22px;
+    padding: 26px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.18);
+}
+
+.salary-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.salary-modal-header h2 {
+    margin: 0;
+    font-weight: 900;
+}
+
+.salary-modal-header button {
+    border: none;
+    background: #f1f4fb;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.salary-modal p {
+    background: #f8faff;
+    padding: 13px 15px;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+    .salary-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .salary-content {
+        grid-template-columns: 1fr;
+    }
+    .salary-list-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+}
+
+@media (max-width: 700px) {
+    .salary-page {
+        padding: 24px 16px;
+    }
+    .salary-header {
+        flex-direction: column;
+        gap: 18px;
+    }
+    .salary-stats {
+        grid-template-columns: 1fr;
+    }
+    .salary-tools {
+        width: 100%;
+        flex-direction: column;
+    }
+    .salary-search,
+    .salary-tools select {
+        width: 100%;
+    }
+    .salary-modal {
+        width: 90%;
+    }
+}

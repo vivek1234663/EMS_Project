@@ -17,7 +17,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Attendance from "./pages/Attendance";
 import Leave from "./pages/Leave";
-import Performance from "./pages/Performance";
+//import Performance from "./pages/Performance";
 import Salary from "./pages/Salary";
 import Reports from "./pages/Reports";
 

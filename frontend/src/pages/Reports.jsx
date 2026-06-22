@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaChartPie,
   FaUsers,
@@ -7,62 +7,16 @@ import {
   FaDownload,
   FaSearch,
   FaEye,
-  FaTrash,
   FaTimes,
   FaFileAlt,
   FaTrophy,
 } from "react-icons/fa";
+import API from "../api/api";
 import "./Reports.css";
 
-const initialReports = [
-  {
-    id: "REP001",
-    title: "Employee Summary Report",
-    type: "Employee",
-    department: "All Departments",
-    month: "May 2026",
-    generatedBy: "Admin",
-    totalRecords: 82,
-    status: "Completed",
-    createdAt: "2026-05-30",
-  },
-  {
-    id: "REP002",
-    title: "Attendance Monthly Report",
-    type: "Attendance",
-    department: "IT Department",
-    month: "May 2026",
-    generatedBy: "Admin",
-    totalRecords: 41,
-    status: "Completed",
-    createdAt: "2026-05-29",
-  },
-  {
-    id: "REP003",
-    title: "Salary Payment Report",
-    type: "Salary",
-    department: "Finance Department",
-    month: "May 2026",
-    generatedBy: "Admin",
-    totalRecords: 22,
-    status: "Pending",
-    createdAt: "2026-05-28",
-  },
-  {
-    id: "REP004",
-    title: "Performance Review Report",
-    type: "Performance",
-    department: "IT Department",
-    month: "May 2026",
-    generatedBy: "HR Manager",
-    totalRecords: 36,
-    status: "Completed",
-    createdAt: "2026-05-27",
-  },
-];
-
 export default function Reports() {
-  const [reports, setReports] = useState(initialReports);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Reports");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -77,15 +31,112 @@ export default function Reports() {
     "Performance",
   ];
 
-  const statuses = ["All Status", "Completed", "Pending"];
+  const statuses = ["All Status", "Completed"];
+
+  const formatDate = () => {
+    return new Date().toLocaleDateString("en-IN");
+  };
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+
+      const [employeesRes, attendanceRes, salaryRes, performanceRes] =
+        await Promise.all([
+          API.get("/reports/employees"),
+          API.get("/reports/attendance"),
+          API.get("/reports/salary"),
+          API.get("/reports/performance"),
+        ]);
+
+      const employeeData = Array.isArray(employeesRes.data)
+        ? employeesRes.data
+        : [];
+
+      const attendanceData = Array.isArray(attendanceRes.data)
+        ? attendanceRes.data
+        : [];
+
+      const salaryData = Array.isArray(salaryRes.data) ? salaryRes.data : [];
+
+      const performanceData = Array.isArray(performanceRes.data)
+        ? performanceRes.data
+        : [];
+
+      const finalReports = [
+        {
+          id: "RPT-EMP-001",
+          title: "Employee Report",
+          type: "Employee",
+          department: "All Departments",
+          month: "All",
+          generatedBy: "Admin",
+          totalRecords: employeeData.length,
+          status: "Completed",
+          createdAt: formatDate(),
+          rawData: employeeData,
+        },
+        {
+          id: "RPT-ATT-001",
+          title: "Attendance Report",
+          type: "Attendance",
+          department: "All Departments",
+          month: "All",
+          generatedBy: "Admin",
+          totalRecords: attendanceData.length,
+          status: "Completed",
+          createdAt: formatDate(),
+          rawData: attendanceData,
+        },
+        {
+          id: "RPT-SAL-001",
+          title: "Salary Report",
+          type: "Salary",
+          department: "All Departments",
+          month: "All",
+          generatedBy: "Admin",
+          totalRecords: salaryData.length,
+          status: "Completed",
+          createdAt: formatDate(),
+          rawData: salaryData,
+        },
+        {
+          id: "RPT-PER-001",
+          title: "Performance Report",
+          type: "Performance",
+          department: "All Departments",
+          month: "All",
+          generatedBy: "Admin",
+          totalRecords: performanceData.length,
+          status: "Completed",
+          createdAt: formatDate(),
+          rawData: performanceData,
+        },
+      ];
+
+      setReports(finalReports);
+    } catch (error) {
+      console.error("Reports fetch error:", error);
+      alert("Reports load nahi ho rahe. Backend APIs check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
 
   const filteredReports = useMemo(() => {
     return reports.filter((item) => {
+      const keyword = search.toLowerCase();
+
       const matchSearch =
-        item.id.toLowerCase().includes(search.toLowerCase()) ||
-        item.title.toLowerCase().includes(search.toLowerCase()) ||
-        item.department.toLowerCase().includes(search.toLowerCase()) ||
-        item.generatedBy.toLowerCase().includes(search.toLowerCase());
+        String(item.id || "").toLowerCase().includes(keyword) ||
+        String(item.title || "").toLowerCase().includes(keyword) ||
+        String(item.department || "").toLowerCase().includes(keyword) ||
+        String(item.generatedBy || "").toLowerCase().includes(keyword) ||
+        String(item.type || "").toLowerCase().includes(keyword);
 
       const matchType =
         typeFilter === "All Reports" || item.type === typeFilter;
@@ -106,9 +157,19 @@ export default function Reports() {
   ).length;
 
   const totalRecords = reports.reduce(
-    (sum, item) => sum + Number(item.totalRecords),
+    (sum, item) => sum + Number(item.totalRecords || 0),
     0
   );
+
+  const getReportCountByType = (type) => {
+    const report = reports.find((item) => item.type === type);
+    return report ? report.totalRecords : 0;
+  };
+
+  const getActiveReportData = () => {
+    const report = reports.find((item) => item.type === activeReport);
+    return report?.rawData || [];
+  };
 
   const downloadReport = (item) => {
     const content = `
@@ -121,6 +182,9 @@ Generated By: ${item.generatedBy}
 Total Records: ${item.totalRecords}
 Status: ${item.status}
 Created At: ${item.createdAt}
+
+Data:
+${JSON.stringify(item.rawData, null, 2)}
 `;
 
     const blob = new Blob([content], { type: "text/plain" });
@@ -128,8 +192,10 @@ Created At: ${item.createdAt}
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${item.title}.txt`;
+    a.download = `${item.title || "report"}.txt`;
     a.click();
+
+    URL.revokeObjectURL(url);
   };
 
   const downloadCSV = () => {
@@ -138,7 +204,11 @@ Created At: ${item.createdAt}
       reports
         .map(
           (item) =>
-            `${item.id},${item.title},${item.type},${item.department},${item.month},${item.generatedBy},${item.totalRecords},${item.status},${item.createdAt}`
+            `${item.id || ""},${item.title || ""},${item.type || ""},${
+              item.department || ""
+            },${item.month || ""},${item.generatedBy || ""},${
+              item.totalRecords || 0
+            },${item.status || ""},${item.createdAt || ""}`
         )
         .join("\n");
 
@@ -149,12 +219,39 @@ Created At: ${item.createdAt}
     a.href = url;
     a.download = "all-reports.csv";
     a.click();
+
+    URL.revokeObjectURL(url);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this report?")) {
-      setReports((prev) => prev.filter((item) => item.id !== id));
+  const downloadActiveCSV = () => {
+    const activeData = getActiveReportData();
+
+    if (activeData.length === 0) {
+      alert("No data available to download");
+      return;
     }
+
+    const headers = Object.keys(activeData[0]).join(",");
+
+    const rows = activeData
+      .map((item) =>
+        Object.values(item)
+          .map((value) => `"${value ?? ""}"`)
+          .join(",")
+      )
+      .join("\n");
+
+    const csv = `${headers}\n${rows}`;
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeReport}-report.csv`;
+    a.click();
+
+    URL.revokeObjectURL(url);
   };
 
   const getTypeClass = (type) => {
@@ -163,6 +260,34 @@ Created At: ${item.createdAt}
     if (type === "Salary") return "report-type salary";
     if (type === "Performance") return "report-type performance";
     return "report-type";
+  };
+
+  const renderActiveTableHeaders = () => {
+    const activeData = getActiveReportData();
+
+    if (activeData.length === 0) return null;
+
+    return Object.keys(activeData[0]).map((key) => <th key={key}>{key}</th>);
+  };
+
+  const renderActiveTableRows = () => {
+    const activeData = getActiveReportData();
+
+    if (activeData.length === 0) {
+      return (
+        <tr>
+          <td colSpan="10">No {activeReport} data found</td>
+        </tr>
+      );
+    }
+
+    return activeData.map((row, index) => (
+      <tr key={row.id || index}>
+        {Object.values(row).map((value, i) => (
+          <td key={i}>{String(value ?? "-")}</td>
+        ))}
+      </tr>
+    ));
   };
 
   return (
@@ -227,7 +352,7 @@ Created At: ${item.createdAt}
           </div>
           <div>
             <h3>Employee Report</h3>
-            <p>Track employee count, active staff and department-wise data.</p>
+            <p>{getReportCountByType("Employee")} employees available.</p>
           </div>
         </div>
 
@@ -244,7 +369,7 @@ Created At: ${item.createdAt}
           </div>
           <div>
             <h3>Attendance Report</h3>
-            <p>Monitor present, late, absent and work mode records.</p>
+            <p>{getReportCountByType("Attendance")} attendance records.</p>
           </div>
         </div>
 
@@ -261,7 +386,7 @@ Created At: ${item.createdAt}
           </div>
           <div>
             <h3>Salary Report</h3>
-            <p>Review paid, pending, net salary and monthly payroll details.</p>
+            <p>{getReportCountByType("Salary")} salary records.</p>
           </div>
         </div>
 
@@ -278,7 +403,7 @@ Created At: ${item.createdAt}
           </div>
           <div>
             <h3>Performance Report</h3>
-            <p>Analyze rating, score, tasks and employee review status.</p>
+            <p>{getReportCountByType("Performance")} performance records.</p>
           </div>
         </div>
       </div>
@@ -287,260 +412,55 @@ Created At: ${item.createdAt}
         <div className="detail-section-header">
           <div>
             <h2>{activeReport} Detailed Report</h2>
-            <p>Selected report summary and department-wise analysis.</p>
+            <p>Live report data based on backend records.</p>
           </div>
 
-          <button onClick={downloadCSV}>
-            <FaDownload /> Download
+          <button onClick={downloadActiveCSV}>
+            <FaDownload /> Download {activeReport}
           </button>
         </div>
 
-        {activeReport === "Employee" && (
-          <>
-            <div className="detail-grid">
-              <div className="detail-card">
-                <h3>Total Employees</h3>
-                <p>82</p>
-              </div>
-              <div className="detail-card">
-                <h3>Active Employees</h3>
-                <p>76</p>
-              </div>
-              <div className="detail-card">
-                <h3>Inactive Employees</h3>
-                <p>6</p>
-              </div>
-              <div className="detail-card">
-                <h3>Departments</h3>
-                <p>4</p>
-              </div>
-            </div>
+        <div className="detail-grid">
+          <div className="detail-card">
+            <h3>Total {activeReport} Records</h3>
+            <p>{getReportCountByType(activeReport)}</p>
+          </div>
 
-            <div className="mini-report-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Department</th>
-                    <th>Total Employees</th>
-                    <th>Active</th>
-                    <th>Inactive</th>
-                    <th>Head</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>IT Department</td>
-                    <td>41</td>
-                    <td>39</td>
-                    <td>2</td>
-                    <td>Vivek Srivastava</td>
-                  </tr>
-                  <tr>
-                    <td>HR Department</td>
-                    <td>22</td>
-                    <td>20</td>
-                    <td>2</td>
-                    <td>Neha Gupta</td>
-                  </tr>
-                  <tr>
-                    <td>Finance Department</td>
-                    <td>19</td>
-                    <td>17</td>
-                    <td>2</td>
-                    <td>Anjali Verma</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+          <div className="detail-card">
+            <h3>Status</h3>
+            <p>Completed</p>
+          </div>
 
-        {activeReport === "Attendance" && (
-          <>
-            <div className="detail-grid">
-              <div className="detail-card">
-                <h3>Present</h3>
-                <p>68</p>
-              </div>
-              <div className="detail-card">
-                <h3>Late</h3>
-                <p>9</p>
-              </div>
-              <div className="detail-card">
-                <h3>Absent</h3>
-                <p>5</p>
-              </div>
-              <div className="detail-card">
-                <h3>Remote</h3>
-                <p>12</p>
-              </div>
-            </div>
+          <div className="detail-card">
+            <h3>Generated By</h3>
+            <p>Admin</p>
+          </div>
 
-            <div className="mini-report-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Present Days</th>
-                    <th>Late Days</th>
-                    <th>Attendance %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Vivek Srivastava</td>
-                    <td>IT Department</td>
-                    <td>24</td>
-                    <td>1</td>
-                    <td>96%</td>
-                  </tr>
-                  <tr>
-                    <td>Rahul Sharma</td>
-                    <td>IT Department</td>
-                    <td>23</td>
-                    <td>2</td>
-                    <td>90%</td>
-                  </tr>
-                  <tr>
-                    <td>Priya Patel</td>
-                    <td>HR Department</td>
-                    <td>21</td>
-                    <td>3</td>
-                    <td>85%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+          <div className="detail-card">
+            <h3>Created At</h3>
+            <p>{formatDate()}</p>
+          </div>
+        </div>
 
-        {activeReport === "Salary" && (
-          <>
-            <div className="detail-grid">
-              <div className="detail-card">
-                <h3>Total Paid</h3>
-                <p>₹4.5L</p>
-              </div>
-              <div className="detail-card">
-                <h3>Pending Amount</h3>
-                <p>₹75K</p>
-              </div>
-              <div className="detail-card">
-                <h3>Average Salary</h3>
-                <p>₹37.5K</p>
-              </div>
-              <div className="detail-card">
-                <h3>Pending Payments</h3>
-                <p>1</p>
-              </div>
-            </div>
-
-            <div className="mini-report-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Basic</th>
-                    <th>Net Salary</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Vivek Srivastava</td>
-                    <td>IT Department</td>
-                    <td>₹40,000</td>
-                    <td>₹41,423</td>
-                    <td>Paid</td>
-                  </tr>
-                  <tr>
-                    <td>Rahul Sharma</td>
-                    <td>IT Department</td>
-                    <td>₹35,000</td>
-                    <td>₹33,712</td>
-                    <td>Pending</td>
-                  </tr>
-                  <tr>
-                    <td>Priya Patel</td>
-                    <td>HR Department</td>
-                    <td>₹32,000</td>
-                    <td>₹31,500</td>
-                    <td>Paid</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {activeReport === "Performance" && (
-          <>
-            <div className="detail-grid">
-              <div className="detail-card">
-                <h3>Excellent</h3>
-                <p>18</p>
-              </div>
-              <div className="detail-card">
-                <h3>Good</h3>
-                <p>42</p>
-              </div>
-              <div className="detail-card">
-                <h3>Average</h3>
-                <p>22</p>
-              </div>
-              <div className="detail-card">
-                <h3>Avg Score</h3>
-                <p>82%</p>
-              </div>
-            </div>
-
-            <div className="mini-report-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Rating</th>
-                    <th>Score</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Vivek Srivastava</td>
-                    <td>IT Department</td>
-                    <td>5 ★</td>
-                    <td>92%</td>
-                    <td>Excellent</td>
-                  </tr>
-                  <tr>
-                    <td>Rahul Sharma</td>
-                    <td>IT Department</td>
-                    <td>4 ★</td>
-                    <td>82%</td>
-                    <td>Good</td>
-                  </tr>
-                  <tr>
-                    <td>Priya Patel</td>
-                    <td>HR Department</td>
-                    <td>3 ★</td>
-                    <td>68%</td>
-                    <td>Average</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+        <div className="mini-report-table">
+          <table>
+            <thead>
+              <tr>{renderActiveTableHeaders()}</tr>
+            </thead>
+            <tbody>{renderActiveTableRows()}</tbody>
+          </table>
+        </div>
       </div>
 
       <div className="reports-table-card">
         <div className="reports-table-header">
           <div>
             <h2>Generated Reports</h2>
-            <p>{filteredReports.length} reports found</p>
+            <p>
+              {loading
+                ? "Loading reports..."
+                : `${filteredReports.length} reports found`}
+            </p>
           </div>
 
           <div className="reports-tools">
@@ -608,13 +528,7 @@ Created At: ${item.createdAt}
                       <span className="record-pill">{item.totalRecords}</span>
                     </td>
                     <td>
-                      <span
-                        className={
-                          item.status === "Completed"
-                            ? "report-status completed"
-                            : "report-status pending"
-                        }
-                      >
+                      <span className="report-status completed">
                         {item.status}
                       </span>
                     </td>
@@ -634,13 +548,6 @@ Created At: ${item.createdAt}
                         >
                           <FaDownload />
                         </button>
-
-                        <button
-                          className="delete"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          <FaTrash />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -648,7 +555,7 @@ Created At: ${item.createdAt}
               ) : (
                 <tr>
                   <td colSpan="10" className="no-report">
-                    No report found
+                    {loading ? "Loading..." : "No report found"}
                   </td>
                 </tr>
               )}

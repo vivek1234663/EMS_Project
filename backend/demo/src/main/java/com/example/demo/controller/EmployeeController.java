@@ -40,14 +40,22 @@ public class EmployeeController {
 
     @DeleteMapping("/{id}")
     public String deleteEmployee(@PathVariable Long id) {
-
         employeeService.deleteEmployee(id);
-
         return "Employee deleted successfully";
     }
 
     @GetMapping("/search")
     public List<Employee> searchEmployees(@RequestParam String keyword) {
         return employeeService.searchEmployees(keyword);
+    }
+
+    @GetMapping("/department/{department}")
+    public List<Employee> getByDepartment(@PathVariable String department) {
+        return employeeService.getEmployeesByDepartment(department);
+    }
+
+    @GetMapping("/status/{status}")
+    public List<Employee> getByStatus(@PathVariable String status) {
+        return employeeService.getEmployeesByStatus(status);
     }
 }

@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./Employees.css";
+import API from "../api/api";
 import {
   FaEye,
   FaEdit,
@@ -12,46 +13,14 @@ import {
   FaUserClock,
 } from "react-icons/fa";
 
-const initialEmployees = [
-  {
-    id: "EMP001",
-    name: "Vivek Srivastava",
-    department: "IT Department",
-    designation: "Full Stack Developer",
-    email: "vivek@gmail.com",
-    phone: "7851804530",
-    status: "Active",
-    joinDate: "2026-05-12",
-  },
-  {
-    id: "EMP002",
-    name: "Rahul Sharma",
-    department: "IT Department",
-    designation: "Backend Developer",
-    email: "rahul@gmail.com",
-    phone: "9876543210",
-    status: "Active",
-    joinDate: "2026-05-13",
-  },
-  {
-    id: "EMP003",
-    name: "Priya Patel",
-    department: "HR Department",
-    designation: "HR Executive",
-    email: "priya@gmail.com",
-    phone: "9123456780",
-    status: "Inactive",
-    joinDate: "2026-05-14",
-  },
-];
-
 export default function Employees() {
-  const [employees, setEmployees] = useState(initialEmployees);
+  const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [viewEmployee, setViewEmployee] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -60,13 +29,33 @@ export default function Employees() {
     email: "",
     phone: "",
     status: "Active",
-    joinDate: "",
+    joiningDate: "",
+    salary: "",
   });
 
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/employees");
+      setEmployees(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Employee fetch error:", error);
+      alert("Employees load nahi ho rahe. Backend/API check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
   const totalEmployees = employees.length;
+
   const activeEmployees = employees.filter(
     (emp) => emp.status === "Active"
   ).length;
+
   const inactiveEmployees = employees.filter(
     (emp) => emp.status === "Inactive"
   ).length;
@@ -83,13 +72,12 @@ export default function Employees() {
         emp.email,
         emp.phone,
         emp.status,
-        emp.joinDate,
+        emp.joiningDate,
       ]
         .join(" ")
         .toLowerCase();
 
       const matchSearch = searchableText.includes(keyword);
-
       const matchStatus =
         statusFilter === "All" || emp.status === statusFilter;
 
@@ -107,15 +95,6 @@ export default function Employees() {
     });
   };
 
-  const generateEmployeeId = () => {
-    const lastNumber =
-      employees.length > 0
-        ? Math.max(...employees.map((emp) => Number(emp.id.replace("EMP", ""))))
-        : 0;
-
-    return `EMP${String(lastNumber + 1).padStart(3, "0")}`;
-  };
-
   const resetForm = () => {
     setForm({
       name: "",
@@ -124,8 +103,10 @@ export default function Employees() {
       email: "",
       phone: "",
       status: "Active",
-      joinDate: "",
+      joiningDate: "",
+      salary: "",
     });
+
     setEditId(null);
     setShowForm(false);
   };
@@ -134,65 +115,80 @@ export default function Employees() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
+  const validateForm = () => {
     if (
       !form.name.trim() ||
       !form.department.trim() ||
       !form.designation.trim() ||
       !form.email.trim() ||
       !form.phone.trim() ||
-      !form.joinDate
+      !form.joiningDate
     ) {
-      alert("Please fill all fields");
-      return;
+      alert("Please fill all required fields");
+      return false;
     }
 
-    if (editId) {
-      setEmployees(
-        employees.map((emp) =>
-          emp.id === editId ? { ...emp, ...form } : emp
-        )
-      );
-    } else {
-      setEmployees([
-        ...employees,
-        {
-          id: generateEmployeeId(),
-          ...form,
-        },
-      ]);
-    }
+    return true;
+  };
 
-    resetForm();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    const payload = {
+      ...form,
+      salary: form.salary ? Number(form.salary) : 0,
+    };
+
+    try {
+      if (editId) {
+        await API.put(`/employees/${editId}`, payload);
+        alert("Employee updated successfully");
+      } else {
+        await API.post("/employees", payload);
+        alert("Employee added successfully");
+      }
+
+      resetForm();
+      fetchEmployees();
+    } catch (error) {
+      console.error("Employee save error:", error);
+      alert("Employee save nahi ho raha. Backend field names check karo.");
+    }
   };
 
   const handleEdit = (emp) => {
     setEditId(emp.id);
+
     setForm({
-      name: emp.name,
-      department: emp.department,
-      designation: emp.designation,
-      email: emp.email,
-      phone: emp.phone,
-      status: emp.status,
-      joinDate: emp.joinDate,
+      name: emp.name || "",
+      department: emp.department || "",
+      designation: emp.designation || "",
+      email: emp.email || "",
+      phone: emp.phone || "",
+      status: emp.status || "Active",
+      joiningDate: emp.joiningDate || "",
+      salary: emp.salary || "",
     });
+
     setShowForm(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this employee?")) {
-      setEmployees(employees.filter((emp) => emp.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this employee?")) return;
 
-      if (editId === id) {
-        resetForm();
-      }
+    try {
+      await API.delete(`/employees/${id}`);
+      alert("Employee deleted successfully");
 
-      if (viewEmployee?.id === id) {
-        setViewEmployee(null);
-      }
+      if (editId === id) resetForm();
+      if (viewEmployee?.id === id) setViewEmployee(null);
+
+      fetchEmployees();
+    } catch (error) {
+      console.error("Employee delete error:", error);
+      alert("Employee delete nahi ho raha. Backend check karo.");
     }
   };
 
@@ -245,7 +241,11 @@ export default function Employees() {
         <div className="employees-toolbar">
           <div>
             <h3>Employee Directory</h3>
-            <p>{filteredEmployees.length} employees found</p>
+            <p>
+              {loading
+                ? "Loading employees..."
+                : `${filteredEmployees.length} employees found`}
+            </p>
           </div>
 
           <div className="toolbar-actions">
@@ -291,6 +291,7 @@ export default function Employees() {
                 <th>Designation</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>Salary</th>
                 <th>Status</th>
                 <th>Join Date</th>
                 <th>Actions</th>
@@ -302,18 +303,22 @@ export default function Employees() {
                 filteredEmployees.map((emp) => (
                   <tr key={emp.id}>
                     <td>{emp.id}</td>
+
                     <td>
                       <div className="employee-name-cell">
                         <div className="employee-avatar">
-                          {emp.name.charAt(0)}
+                          {emp.name?.charAt(0)}
                         </div>
                         <span>{emp.name}</span>
                       </div>
                     </td>
+
                     <td>{emp.department}</td>
                     <td>{emp.designation}</td>
                     <td>{emp.email}</td>
                     <td>{emp.phone}</td>
+                    <td>{emp.salary || 0}</td>
+
                     <td>
                       <span
                         className={
@@ -325,7 +330,9 @@ export default function Employees() {
                         {emp.status}
                       </span>
                     </td>
-                    <td>{formatDate(emp.joinDate)}</td>
+
+                    <td>{formatDate(emp.joiningDate)}</td>
+
                     <td>
                       <div className="employee-actions">
                         <button
@@ -357,8 +364,8 @@ export default function Employees() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="empty-row">
-                    No employees found.
+                  <td colSpan="10" className="empty-row">
+                    {loading ? "Loading..." : "No employees found."}
                   </td>
                 </tr>
               )}
@@ -414,6 +421,14 @@ export default function Employees() {
                 onChange={handleChange}
               />
 
+              <input
+                type="number"
+                name="salary"
+                placeholder="Salary"
+                value={form.salary}
+                onChange={handleChange}
+              />
+
               <select name="status" value={form.status} onChange={handleChange}>
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
@@ -421,8 +436,8 @@ export default function Employees() {
 
               <input
                 type="date"
-                name="joinDate"
-                value={form.joinDate}
+                name="joiningDate"
+                value={form.joiningDate}
                 onChange={handleChange}
               />
 
@@ -437,7 +452,10 @@ export default function Employees() {
       {viewEmployee && (
         <div className="employee-modal-overlay">
           <div className="employee-view-modal">
-            <div className="view-avatar">{viewEmployee.name.charAt(0)}</div>
+            <div className="view-avatar">
+              {viewEmployee.name?.charAt(0)}
+            </div>
+
             <h3>{viewEmployee.name}</h3>
             <p>{viewEmployee.designation}</p>
 
@@ -454,11 +472,14 @@ export default function Employees() {
               <span>Phone</span>
               <b>{viewEmployee.phone}</b>
 
+              <span>Salary</span>
+              <b>{viewEmployee.salary || 0}</b>
+
               <span>Status</span>
               <b>{viewEmployee.status}</b>
 
               <span>Join Date</span>
-              <b>{formatDate(viewEmployee.joinDate)}</b>
+              <b>{formatDate(viewEmployee.joiningDate)}</b>
             </div>
 
             <button type="button" onClick={() => setViewEmployee(null)}>
@@ -469,4 +490,4 @@ export default function Employees() {
       )}
     </main>
   );
-}  
+}

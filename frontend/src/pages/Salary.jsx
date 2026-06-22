@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaDownload,
   FaMoneyBillWave,
@@ -12,41 +12,13 @@ import {
   FaSave,
   FaTimes,
 } from "react-icons/fa";
+import jsPDF from "jspdf";
+import API from "../api/api";
 import "./Salary.css";
 
-const initialSalaries = [
-  {
-    id: "SAL001",
-    employeeId: "EMP001",
-    employee: "Vivek Srivastava",
-    department: "IT Department",
-    designation: "Full Stack Developer",
-    basic: 40000,
-    workingDays: 26,
-    presentDays: 24,
-    performance: 90,
-    bonus: 4000,
-    deductions: 1500,
-    status: "Paid",
-  },
-  {
-    id: "SAL002",
-    employeeId: "EMP002",
-    employee: "Rahul Sharma",
-    department: "IT Department",
-    designation: "Backend Developer",
-    basic: 35000,
-    workingDays: 26,
-    presentDays: 23,
-    performance: 82,
-    bonus: 2450,
-    deductions: 1200,
-    status: "Pending",
-  },
-];
-
 export default function Salary() {
-  const [salaries, setSalaries] = useState(initialSalaries);
+  const [salaries, setSalaries] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [editData, setEditData] = useState(null);
@@ -61,27 +33,94 @@ export default function Salary() {
     workingDays: "",
     presentDays: "",
     performance: "",
+    hra: "",
+    medicalAllowance: "",
+    travelAllowance: "",
     bonus: "",
+    pf: "",
+    healthInsurance: "",
+    professionalTax: "",
     deductions: "",
     status: "Pending",
   });
 
-  const calcNetSalary = (item) => {
-    const attendancePay =
-      (Number(item.basic) / Number(item.workingDays || 1)) *
-      Number(item.presentDays || 0);
+  const normalizeSalary = (item) => ({
+    ...item,
+    employee: item.employee || item.employeeName || "N/A",
+    employeeId: item.employeeId || item.id || "N/A",
+    department: item.department || "N/A",
+    designation: item.designation || "N/A",
+    basic: Number(item.basic || item.basicSalary || 0),
+    workingDays: Number(item.workingDays || 30),
+    presentDays: Number(item.presentDays || 0),
+    performance: Number(item.performance || 0),
+    hra: Number(item.hra || 0),
+    medicalAllowance: Number(item.medicalAllowance || 0),
+    travelAllowance: Number(item.travelAllowance || 0),
+    bonus: Number(item.bonus || 0),
+    pf: Number(item.pf || 0),
+    healthInsurance: Number(item.healthInsurance || 0),
+    professionalTax: Number(item.professionalTax || 0),
+    deductions: Number(item.deductions || 0),
+    status: item.status || item.paymentStatus || "Pending",
+  });
 
-    return Math.round(
-      attendancePay + Number(item.bonus || 0) - Number(item.deductions || 0)
+  const fetchSalaries = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/salary");
+      const data = Array.isArray(res.data) ? res.data : [];
+      setSalaries(data.map(normalizeSalary));
+    } catch (error) {
+      console.error("Salary fetch error:", error);
+      alert("Salary records load nahi ho rahe. Backend check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSalaries();
+  }, []);
+
+  const getAttendancePay = (item) => {
+    const basic = Number(item.basic || 0);
+    const workingDays = Number(item.workingDays || 1);
+    const presentDays = Number(item.presentDays || 0);
+    return Math.round((basic / workingDays) * presentDays);
+  };
+
+  const getGrossSalary = (item) => {
+    return (
+      getAttendancePay(item) +
+      Number(item.hra || 0) +
+      Number(item.medicalAllowance || 0) +
+      Number(item.travelAllowance || 0) +
+      Number(item.bonus || 0)
     );
+  };
+
+  const getTotalDeduction = (item) => {
+    return (
+      Number(item.pf || 0) +
+      Number(item.healthInsurance || 0) +
+      Number(item.professionalTax || 0) +
+      Number(item.deductions || 0)
+    );
+  };
+
+  const calcNetSalary = (item) => {
+    return Math.round(getGrossSalary(item) - getTotalDeduction(item));
   };
 
   const filteredSalaries = useMemo(() => {
     return salaries.filter((item) => {
+      const keyword = search.toLowerCase();
+
       const matchSearch =
-        item.employee.toLowerCase().includes(search.toLowerCase()) ||
-        item.employeeId.toLowerCase().includes(search.toLowerCase()) ||
-        item.department.toLowerCase().includes(search.toLowerCase());
+        String(item.employee || "").toLowerCase().includes(keyword) ||
+        String(item.employeeId || "").toLowerCase().includes(keyword) ||
+        String(item.department || "").toLowerCase().includes(keyword);
 
       const matchStatus =
         statusFilter === "All Status" || item.status === statusFilter;
@@ -94,14 +133,22 @@ export default function Salary() {
     .filter((item) => item.status === "Paid")
     .reduce((sum, item) => sum + calcNetSalary(item), 0);
 
-  const averageSalary = Math.round(
-    salaries.reduce((sum, item) => sum + calcNetSalary(item), 0) /
-      salaries.length
-  );
+  const averageSalary =
+    salaries.length > 0
+      ? Math.round(
+          salaries.reduce((sum, item) => sum + calcNetSalary(item), 0) /
+            salaries.length
+        )
+      : 0;
 
-  const highestSalary = Math.max(...salaries.map((item) => calcNetSalary(item)));
+  const highestSalary =
+    salaries.length > 0
+      ? Math.max(...salaries.map((item) => calcNetSalary(item)))
+      : 0;
 
-  const pendingCount = salaries.filter((item) => item.status === "Pending").length;
+  const pendingCount = salaries.filter(
+    (item) => item.status === "Pending"
+  ).length;
 
   const resetForm = () => {
     setForm({
@@ -113,14 +160,20 @@ export default function Salary() {
       workingDays: "",
       presentDays: "",
       performance: "",
+      hra: "",
+      medicalAllowance: "",
+      travelAllowance: "",
       bonus: "",
+      pf: "",
+      healthInsurance: "",
+      professionalTax: "",
       deductions: "",
       status: "Pending",
     });
     setEditData(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (
@@ -136,67 +189,170 @@ export default function Salary() {
       return;
     }
 
-    if (editData) {
-      setSalaries((prev) =>
-        prev.map((item) => (item.id === editData.id ? { ...item, ...form } : item))
-      );
-    } else {
-      const newId = `SAL${String(salaries.length + 1).padStart(3, "0")}`;
-      setSalaries((prev) => [...prev, { id: newId, ...form }]);
-    }
+    const payload = {
+      employeeId: form.employeeId,
+      employeeName: form.employee,
+      department: form.department,
+      designation: form.designation,
+      basicSalary: Number(form.basic),
+      workingDays: Number(form.workingDays),
+      presentDays: Number(form.presentDays),
+      performance: Number(form.performance || 0),
+      hra: Number(form.hra || 0),
+      medicalAllowance: Number(form.medicalAllowance || 0),
+      travelAllowance: Number(form.travelAllowance || 0),
+      bonus: Number(form.bonus || 0),
+      pf: Number(form.pf || 0),
+      healthInsurance: Number(form.healthInsurance || 0),
+      professionalTax: Number(form.professionalTax || 0),
+      deductions: Number(form.deductions || 0),
+      paymentStatus: form.status,
+    };
 
-    resetForm();
+    try {
+      if (editData) {
+        await API.put(`/salary/${editData.id}`, payload);
+        alert("Salary updated successfully");
+      } else {
+        await API.post("/salary", payload);
+        alert("Salary added successfully");
+      }
+
+      resetForm();
+      fetchSalaries();
+    } catch (error) {
+      console.error("Salary save error:", error);
+      alert("Salary save nahi ho raha. Backend fields check karo.");
+    }
   };
 
   const handleEdit = (item) => {
     setEditData(item);
-    setForm(item);
+    setForm({
+      employeeId: item.employeeId || "",
+      employee: item.employee || "",
+      department: item.department || "",
+      designation: item.designation || "",
+      basic: item.basic || "",
+      workingDays: item.workingDays || "",
+      presentDays: item.presentDays || "",
+      performance: item.performance || "",
+      hra: item.hra || "",
+      medicalAllowance: item.medicalAllowance || "",
+      travelAllowance: item.travelAllowance || "",
+      bonus: item.bonus || "",
+      pf: item.pf || "",
+      healthInsurance: item.healthInsurance || "",
+      professionalTax: item.professionalTax || "",
+      deductions: item.deductions || "",
+      status: item.status || "Pending",
+    });
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Delete this salary record?")) {
-      setSalaries((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this salary record?")) return;
+
+    try {
+      await API.delete(`/salary/${id}`);
+      alert("Salary deleted successfully");
+      fetchSalaries();
+    } catch (error) {
+      console.error("Salary delete error:", error);
+      alert("Salary delete nahi ho raha. Backend check karo.");
     }
   };
 
   const downloadSlip = (item) => {
-    const slip = `
-Salary Slip
-Employee: ${item.employee}
-Employee ID: ${item.employeeId}
-Department: ${item.department}
-Designation: ${item.designation}
-Basic Salary: ₹${item.basic}
-Attendance Pay: ₹${Math.round((item.basic / item.workingDays) * item.presentDays)}
-Bonus: ₹${item.bonus}
-Deductions: ₹${item.deductions}
-Net Salary: ₹${calcNetSalary(item)}
-Status: ${item.status}
-`;
-    const blob = new Blob([slip], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${item.employee}-salary-slip.txt`;
-    a.click();
+    const salary = normalizeSalary(item);
+    const doc = new jsPDF();
+
+    const companyName = "Employee Management System Pvt. Ltd.";
+    const attendancePay = getAttendancePay(salary);
+    const grossSalary = getGrossSalary(salary);
+    const totalDeduction = getTotalDeduction(salary);
+    const netSalary = calcNetSalary(salary);
+
+    doc.setFontSize(18);
+    doc.text(companyName, 20, 18);
+
+    doc.setFontSize(14);
+    doc.text("Salary Slip", 20, 30);
+
+    doc.setFontSize(10);
+    doc.text(`Generated Date: ${new Date().toLocaleDateString("en-IN")}`, 145, 30);
+
+    doc.line(20, 36, 190, 36);
+
+    doc.setFontSize(12);
+    doc.text("Employee Details", 20, 48);
+
+    doc.setFontSize(10);
+    doc.text(`Employee Name: ${salary.employee}`, 20, 60);
+    doc.text(`Employee ID: ${salary.employeeId}`, 110, 60);
+    doc.text(`Department: ${salary.department}`, 20, 70);
+    doc.text(`Designation: ${salary.designation}`, 110, 70);
+    doc.text(`Working Days: ${salary.workingDays}`, 20, 80);
+    doc.text(`Present Days: ${salary.presentDays}`, 110, 80);
+
+    doc.line(20, 88, 190, 88);
+
+    doc.setFontSize(12);
+    doc.text("Earnings", 20, 100);
+    doc.text("Deductions", 110, 100);
+
+    doc.setFontSize(10);
+    doc.text(`Basic Salary: Rs. ${salary.basic}`, 20, 112);
+    doc.text(`Attendance Pay: Rs. ${attendancePay}`, 20, 122);
+    doc.text(`HRA: Rs. ${salary.hra}`, 20, 132);
+    doc.text(`Medical Allowance: Rs. ${salary.medicalAllowance}`, 20, 142);
+    doc.text(`Travel Allowance: Rs. ${salary.travelAllowance}`, 20, 152);
+    doc.text(`Bonus: Rs. ${salary.bonus}`, 20, 162);
+
+    doc.text(`PF Amount: Rs. ${salary.pf}`, 110, 112);
+    doc.text(`Health Insurance: Rs. ${salary.healthInsurance}`, 110, 122);
+    doc.text(`Professional Tax: Rs. ${salary.professionalTax}`, 110, 132);
+    doc.text(`Other Deductions: Rs. ${salary.deductions}`, 110, 142);
+
+    doc.line(20, 172, 190, 172);
+
+    doc.setFontSize(11);
+    doc.text(`Gross Salary: Rs. ${grossSalary}`, 20, 184);
+    doc.text(`Total Deduction: Rs. ${totalDeduction}`, 110, 184);
+
+    doc.setFontSize(14);
+    doc.text(`Net Salary: Rs. ${netSalary}`, 20, 200);
+
+    doc.setFontSize(11);
+    doc.text(`Payment Status: ${salary.status}`, 20, 214);
+
+    doc.line(20, 226, 190, 226);
+
+    doc.setFontSize(10);
+    doc.text("Authorized Signature", 20, 244);
+    doc.text("This is a computer generated salary slip.", 20, 260);
+
+    doc.save(`${salary.employee || "employee"}-salary-slip.pdf`);
   };
 
   const downloadExcel = () => {
     const csv =
-      "Employee ID,Employee,Department,Designation,Basic,Bonus,Deductions,Net Salary,Status\n" +
+      "Employee ID,Employee,Department,Designation,Basic,HRA,Medical Allowance,Travel Allowance,Bonus,PF,Health Insurance,Professional Tax,Deductions,Gross Salary,Net Salary,Status\n" +
       salaries
         .map(
           (item) =>
-            `${item.employeeId},${item.employee},${item.department},${item.designation},${item.basic},${item.bonus},${item.deductions},${calcNetSalary(item)},${item.status}`
+            `${item.employeeId},${item.employee},${item.department},${item.designation},${item.basic},${item.hra || 0},${item.medicalAllowance || 0},${item.travelAllowance || 0},${item.bonus || 0},${item.pf || 0},${item.healthInsurance || 0},${item.professionalTax || 0},${item.deductions || 0},${getGrossSalary(item)},${calcNetSalary(item)},${item.status}`
         )
         .join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+
     a.href = url;
     a.download = "salary-list.csv";
     a.click();
+
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -260,8 +416,14 @@ Status: ${item.status}
             <input type="number" placeholder="Working Days" value={form.workingDays} onChange={(e) => setForm({ ...form, workingDays: e.target.value })} />
             <input type="number" placeholder="Present Days" value={form.presentDays} onChange={(e) => setForm({ ...form, presentDays: e.target.value })} />
             <input type="number" placeholder="Performance Score %" value={form.performance} onChange={(e) => setForm({ ...form, performance: e.target.value })} />
+            <input type="number" placeholder="HRA Amount" value={form.hra} onChange={(e) => setForm({ ...form, hra: e.target.value })} />
+            <input type="number" placeholder="Medical Allowance" value={form.medicalAllowance} onChange={(e) => setForm({ ...form, medicalAllowance: e.target.value })} />
+            <input type="number" placeholder="Travel Allowance" value={form.travelAllowance} onChange={(e) => setForm({ ...form, travelAllowance: e.target.value })} />
             <input type="number" placeholder="Bonus" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
-            <input type="number" placeholder="Deductions" value={form.deductions} onChange={(e) => setForm({ ...form, deductions: e.target.value })} />
+            <input type="number" placeholder="PF Amount" value={form.pf} onChange={(e) => setForm({ ...form, pf: e.target.value })} />
+            <input type="number" placeholder="Health Insurance" value={form.healthInsurance} onChange={(e) => setForm({ ...form, healthInsurance: e.target.value })} />
+            <input type="number" placeholder="Professional Tax" value={form.professionalTax} onChange={(e) => setForm({ ...form, professionalTax: e.target.value })} />
+            <input type="number" placeholder="Other Deductions" value={form.deductions} onChange={(e) => setForm({ ...form, deductions: e.target.value })} />
 
             <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
               <option>Paid</option>
@@ -287,11 +449,7 @@ Status: ${item.status}
             <div className="salary-tools">
               <div className="salary-search">
                 <FaSearch />
-                <input
-                  placeholder="Search employee..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+                <input placeholder="Search employee..." value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
 
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -309,8 +467,7 @@ Status: ${item.status}
                   <th>Employee</th>
                   <th>Department</th>
                   <th>Basic</th>
-                  <th>Attendance Pay</th>
-                  <th>Bonus</th>
+                  <th>Gross</th>
                   <th>Deductions</th>
                   <th>Net Salary</th>
                   <th>Status</th>
@@ -325,36 +482,37 @@ Status: ${item.status}
                       <strong>{item.employee}</strong>
                       <small>{item.employeeId}</small>
                     </td>
+
                     <td>
                       <strong>{item.department}</strong>
                       <small>{item.designation}</small>
                     </td>
-                    <td>₹{Number(item.basic).toLocaleString()}</td>
-                    <td>
-                      ₹
-                      {Math.round(
-                        (item.basic / item.workingDays) * item.presentDays
-                      ).toLocaleString()}
-                    </td>
-                    <td>₹{Number(item.bonus || 0).toLocaleString()}</td>
-                    <td>₹{Number(item.deductions || 0).toLocaleString()}</td>
+
+                    <td>₹{Number(item.basic || 0).toLocaleString()}</td>
+                    <td>₹{getGrossSalary(item).toLocaleString()}</td>
+                    <td>₹{getTotalDeduction(item).toLocaleString()}</td>
                     <td className="net">₹{calcNetSalary(item).toLocaleString()}</td>
+
                     <td>
                       <span className={item.status === "Paid" ? "paid" : "pending"}>
                         {item.status}
                       </span>
                     </td>
+
                     <td>
                       <div className="salary-actions">
                         <button className="view" onClick={() => setViewData(item)}>
                           <FaEye />
                         </button>
+
                         <button className="edit" onClick={() => handleEdit(item)}>
                           <FaEdit />
                         </button>
+
                         <button className="download" onClick={() => downloadSlip(item)}>
                           <FaDownload />
                         </button>
+
                         <button className="delete" onClick={() => handleDelete(item.id)}>
                           <FaTrash />
                         </button>
@@ -365,8 +523,8 @@ Status: ${item.status}
 
                 {filteredSalaries.length === 0 && (
                   <tr>
-                    <td colSpan="9" className="no-data">
-                      No salary record found
+                    <td colSpan="8" className="no-data">
+                      {loading ? "Loading..." : "No salary record found"}
                     </td>
                   </tr>
                 )}
@@ -391,8 +549,16 @@ Status: ${item.status}
             <p><b>Department:</b> {viewData.department}</p>
             <p><b>Designation:</b> {viewData.designation}</p>
             <p><b>Basic Salary:</b> ₹{viewData.basic}</p>
-            <p><b>Bonus:</b> ₹{viewData.bonus}</p>
-            <p><b>Deductions:</b> ₹{viewData.deductions}</p>
+            <p><b>HRA:</b> ₹{viewData.hra || 0}</p>
+            <p><b>Medical Allowance:</b> ₹{viewData.medicalAllowance || 0}</p>
+            <p><b>Travel Allowance:</b> ₹{viewData.travelAllowance || 0}</p>
+            <p><b>Bonus:</b> ₹{viewData.bonus || 0}</p>
+            <p><b>PF:</b> ₹{viewData.pf || 0}</p>
+            <p><b>Health Insurance:</b> ₹{viewData.healthInsurance || 0}</p>
+            <p><b>Professional Tax:</b> ₹{viewData.professionalTax || 0}</p>
+            <p><b>Other Deductions:</b> ₹{viewData.deductions || 0}</p>
+            <p><b>Gross Salary:</b> ₹{getGrossSalary(viewData)}</p>
+            <p><b>Total Deduction:</b> ₹{getTotalDeduction(viewData)}</p>
             <p><b>Net Salary:</b> ₹{calcNetSalary(viewData)}</p>
             <p><b>Status:</b> {viewData.status}</p>
           </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaPlus,
   FaSearch,
@@ -11,46 +11,15 @@ import {
   FaUserCheck,
   FaUserTimes,
 } from "react-icons/fa";
+import API from "../api/api";
 import "./Employees.css";
 
-const initialEmployees = [
-  {
-    id: "EMP001",
-    name: "Vivek Srivastava",
-    department: "IT Department",
-    designation: "Full Stack Developer",
-    email: "vivek@gmail.com",
-    phone: "7851804530",
-    status: "Active",
-    joinDate: "2026-05-12",
-  },
-  {
-    id: "EMP002",
-    name: "Rahul Sharma",
-    department: "IT Department",
-    designation: "Backend Developer",
-    email: "rahul@gmail.com",
-    phone: "9876543210",
-    status: "Active",
-    joinDate: "2026-05-13",
-  },
-  {
-    id: "EMP003",
-    name: "Priya Patel",
-    department: "HR Department",
-    designation: "HR Executive",
-    email: "priya@gmail.com",
-    phone: "9988776655",
-    status: "Inactive",
-    joinDate: "2026-05-14",
-  },
-];
-
 export default function Employees() {
-  const [employees, setEmployees] = useState(initialEmployees);
+  const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editingData, setEditingData] = useState(null);
@@ -63,7 +32,8 @@ export default function Employees() {
     email: "",
     phone: "",
     status: "Active",
-    joinDate: "",
+    joiningDate: "",
+    salary: "",
   });
 
   const rowsPerPage = 3;
@@ -77,14 +47,34 @@ export default function Employees() {
 
   const statuses = ["All Status", "Active", "Inactive"];
 
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/employees");
+      setEmployees(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Employees fetch error:", error);
+      alert("Employees load nahi ho rahe. Backend running hai ya nahi check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
   const filteredEmployees = useMemo(() => {
     return employees.filter((emp) => {
+      const keyword = search.toLowerCase();
+
       const matchSearch =
-        emp.id.toLowerCase().includes(search.toLowerCase()) ||
-        emp.name.toLowerCase().includes(search.toLowerCase()) ||
-        emp.department.toLowerCase().includes(search.toLowerCase()) ||
-        emp.designation.toLowerCase().includes(search.toLowerCase()) ||
-        emp.email.toLowerCase().includes(search.toLowerCase());
+        String(emp.id || "").toLowerCase().includes(keyword) ||
+        String(emp.name || "").toLowerCase().includes(keyword) ||
+        String(emp.department || "").toLowerCase().includes(keyword) ||
+        String(emp.designation || "").toLowerCase().includes(keyword) ||
+        String(emp.email || "").toLowerCase().includes(keyword) ||
+        String(emp.phone || "").toLowerCase().includes(keyword);
 
       const matchStatus =
         statusFilter === "All Status" || emp.status === statusFilter;
@@ -103,7 +93,7 @@ export default function Employees() {
   const activeCount = employees.filter((emp) => emp.status === "Active").length;
   const inactiveCount = employees.filter((emp) => emp.status === "Inactive").length;
 
-  const openAddModal = () => {
+  const resetForm = () => {
     setEditingData(null);
     setViewData(null);
     setFormData({
@@ -113,8 +103,13 @@ export default function Employees() {
       email: "",
       phone: "",
       status: "Active",
-      joinDate: "",
+      joiningDate: "",
+      salary: "",
     });
+  };
+
+  const openAddModal = () => {
+    resetForm();
     setShowModal(true);
   };
 
@@ -122,13 +117,14 @@ export default function Employees() {
     setViewData(null);
     setEditingData(emp);
     setFormData({
-      name: emp.name,
-      department: emp.department,
-      designation: emp.designation,
-      email: emp.email,
-      phone: emp.phone,
-      status: emp.status,
-      joinDate: emp.joinDate,
+      name: emp.name || "",
+      department: emp.department || "IT Department",
+      designation: emp.designation || "",
+      email: emp.email || "",
+      phone: emp.phone || "",
+      status: emp.status || "Active",
+      joiningDate: emp.joiningDate || "",
+      salary: emp.salary || "",
     });
     setShowModal(true);
   };
@@ -139,49 +135,78 @@ export default function Employees() {
     setViewData(emp);
   };
 
-  const handleSubmit = (e) => {
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (
-      !formData.name ||
-      !formData.department ||
-      !formData.designation ||
-      !formData.email ||
-      !formData.phone ||
-      !formData.joinDate
+      !formData.name.trim() ||
+      !formData.department.trim() ||
+      !formData.designation.trim() ||
+      !formData.email.trim() ||
+      !formData.phone.trim() ||
+      !formData.joiningDate
     ) {
       alert("Please fill all fields");
       return;
     }
 
-    if (editingData) {
-      setEmployees((prev) =>
-        prev.map((emp) =>
-          emp.id === editingData.id ? { ...emp, ...formData } : emp
-        )
-      );
-    } else {
-      const newId = `EMP${String(employees.length + 1).padStart(3, "0")}`;
+    const payload = {
+      name: formData.name,
+      department: formData.department,
+      designation: formData.designation,
+      email: formData.email,
+      phone: formData.phone,
+      status: formData.status,
+      joiningDate: formData.joiningDate,
+      salary: formData.salary ? Number(formData.salary) : 0,
+    };
 
-      setEmployees((prev) => [
-        ...prev,
-        {
-          id: newId,
-          ...formData,
-        },
-      ]);
+    try {
+      if (editingData) {
+        await API.put(`/employees/${editingData.id}`, payload);
+        alert("Employee updated successfully");
+      } else {
+        await API.post("/employees", payload);
+        alert("Employee added successfully");
+      }
+
+      setShowModal(false);
+      resetForm();
+      fetchEmployees();
+    } catch (error) {
+      console.error("Employee save error:", error);
+      alert("Employee save nahi ho raha. Backend fields check karo.");
     }
-
-    setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this employee?")) {
-      setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this employee?")) return;
+
+    try {
+      await API.delete(`/employees/${id}`);
+      alert("Employee deleted successfully");
+
+      if (viewData?.id === id) {
+        setViewData(null);
+      }
+
+      fetchEmployees();
+    } catch (error) {
+      console.error("Employee delete error:", error);
+      alert("Employee delete nahi ho raha. Backend check karo.");
     }
   };
 
   const formatDate = (date) => {
+    if (!date) return "-";
+
     return new Date(date).toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
@@ -189,7 +214,9 @@ export default function Employees() {
     });
   };
 
-  const getInitial = (name) => name.charAt(0).toUpperCase();
+  const getInitial = (name) => {
+    return name ? name.charAt(0).toUpperCase() : "?";
+  };
 
   return (
     <div className="employees-page">
@@ -244,7 +271,11 @@ export default function Employees() {
         <div className="directory-header">
           <div>
             <h2>Employee Directory</h2>
-            <p>{filteredEmployees.length} employees found</p>
+            <p>
+              {loading
+                ? "Loading employees..."
+                : `${filteredEmployees.length} employees found`}
+            </p>
           </div>
 
           <div className="employee-tools">
@@ -285,6 +316,7 @@ export default function Employees() {
                 <th>Designation</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>Salary</th>
                 <th>Status</th>
                 <th>Join Date</th>
                 <th>Actions</th>
@@ -308,6 +340,7 @@ export default function Employees() {
                     <td>{emp.designation}</td>
                     <td>{emp.email}</td>
                     <td>{emp.phone}</td>
+                    <td>{emp.salary || 0}</td>
 
                     <td>
                       <span
@@ -321,7 +354,7 @@ export default function Employees() {
                       </span>
                     </td>
 
-                    <td>{formatDate(emp.joinDate)}</td>
+                    <td>{formatDate(emp.joiningDate)}</td>
 
                     <td>
                       <div className="emp-actions">
@@ -342,8 +375,8 @@ export default function Employees() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="emp-no-data">
-                    No employee found
+                  <td colSpan="10" className="emp-no-data">
+                    {loading ? "Loading..." : "No employee found"}
                   </td>
                 </tr>
               )}
@@ -401,9 +434,7 @@ export default function Employees() {
                   type="text"
                   placeholder="Employee name"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => handleInputChange("name", e.target.value)}
                 />
               </div>
 
@@ -411,9 +442,7 @@ export default function Employees() {
                 <label>Department</label>
                 <select
                   value={formData.department}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department: e.target.value })
-                  }
+                  onChange={(e) => handleInputChange("department", e.target.value)}
                 >
                   {departments.map((dept) => (
                     <option key={dept}>{dept}</option>
@@ -427,9 +456,7 @@ export default function Employees() {
                   type="text"
                   placeholder="Designation"
                   value={formData.designation}
-                  onChange={(e) =>
-                    setFormData({ ...formData, designation: e.target.value })
-                  }
+                  onChange={(e) => handleInputChange("designation", e.target.value)}
                 />
               </div>
 
@@ -439,9 +466,7 @@ export default function Employees() {
                   type="email"
                   placeholder="employee@gmail.com"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  onChange={(e) => handleInputChange("email", e.target.value)}
                 />
               </div>
 
@@ -451,9 +476,17 @@ export default function Employees() {
                   type="text"
                   placeholder="Phone number"
                   value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
+                  onChange={(e) => handleInputChange("phone", e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label>Salary</label>
+                <input
+                  type="number"
+                  placeholder="Salary"
+                  value={formData.salary}
+                  onChange={(e) => handleInputChange("salary", e.target.value)}
                 />
               </div>
 
@@ -461,9 +494,7 @@ export default function Employees() {
                 <label>Status</label>
                 <select
                   value={formData.status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value })
-                  }
+                  onChange={(e) => handleInputChange("status", e.target.value)}
                 >
                   <option>Active</option>
                   <option>Inactive</option>
@@ -474,10 +505,8 @@ export default function Employees() {
                 <label>Join Date</label>
                 <input
                   type="date"
-                  value={formData.joinDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, joinDate: e.target.value })
-                  }
+                  value={formData.joiningDate}
+                  onChange={(e) => handleInputChange("joiningDate", e.target.value)}
                 />
               </div>
 
@@ -506,8 +535,9 @@ export default function Employees() {
               <p><strong>Designation:</strong> {viewData.designation}</p>
               <p><strong>Email:</strong> {viewData.email}</p>
               <p><strong>Phone:</strong> {viewData.phone}</p>
+              <p><strong>Salary:</strong> {viewData.salary || 0}</p>
               <p><strong>Status:</strong> {viewData.status}</p>
-              <p><strong>Join Date:</strong> {formatDate(viewData.joinDate)}</p>
+              <p><strong>Join Date:</strong> {formatDate(viewData.joiningDate)}</p>
             </div>
           </div>
         </div>

@@ -37,7 +37,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-        return http
+        http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .formLogin(form -> form.disable())
@@ -46,14 +46,34 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/employees/**").authenticated()
-                        .anyRequest().authenticated()
+                        .requestMatchers(
+                                "/api/health",
+                                "/api/auth/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
+                        // Testing ke liye sab API allow
+                        .requestMatchers(
+                                "/api/employees/**",
+                                "/api/departments/**",
+                                "/api/designations/**",
+                                "/api/attendance/**",
+                                "/api/performance/**",
+                                "/api/salary/**",
+                                "/api/dashboard/**",
+                                "/api/leaves/**",
+                                "/api/reports/**"
+                        ).permitAll()
+
+                        .anyRequest().permitAll()
                 )
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
-                )
-                .build();
+                );
+
+        return http.build();
     }
 }

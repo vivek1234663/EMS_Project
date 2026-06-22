@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaPlus,
   FaSearch,
@@ -12,58 +12,12 @@ import {
   FaUsers,
   FaTrophy,
 } from "react-icons/fa";
+import API from "../api/api";
 import "./Performance.css";
 
-const initialData = [
-  {
-    id: "PER001",
-    employeeId: "EMP001",
-    name: "Vivek Srivastava",
-    department: "IT Department",
-    designation: "Full Stack Developer",
-    rating: 5,
-    score: 92,
-    attendance: 96,
-    completedTasks: 34,
-    pendingTasks: 2,
-    status: "Excellent",
-    reviewDate: "2026-05-28",
-    managerComments: "Great performance and strong problem solving.",
-  },
-  {
-    id: "PER002",
-    employeeId: "EMP002",
-    name: "Rahul Sharma",
-    department: "IT Department",
-    designation: "Backend Developer",
-    rating: 4,
-    score: 82,
-    attendance: 90,
-    completedTasks: 28,
-    pendingTasks: 5,
-    status: "Good",
-    reviewDate: "2026-05-28",
-    managerComments: "Good backend skills, improve delivery speed.",
-  },
-  {
-    id: "PER003",
-    employeeId: "EMP003",
-    name: "Priya Patel",
-    department: "HR Department",
-    designation: "HR Executive",
-    rating: 3,
-    score: 68,
-    attendance: 85,
-    completedTasks: 20,
-    pendingTasks: 8,
-    status: "Average",
-    reviewDate: "2026-05-29",
-    managerComments: "Needs improvement in follow-ups.",
-  },
-];
-
 export default function Performance() {
-  const [records, setRecords] = useState(initialData);
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("All Departments");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -75,15 +29,15 @@ export default function Performance() {
 
   const [formData, setFormData] = useState({
     employeeId: "",
-    name: "",
+    employeeName: "",
     department: "IT Department",
     designation: "",
     rating: "",
-    score: "",
+    performanceScore: "",
     attendance: "",
     completedTasks: "",
     pendingTasks: "",
-    status: "Good",
+    performanceStatus: "Good",
     reviewDate: "",
     managerComments: "",
   });
@@ -100,21 +54,41 @@ export default function Performance() {
 
   const statuses = ["All Status", "Excellent", "Good", "Average", "Poor"];
 
+  const fetchPerformance = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/performance");
+      setRecords(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Performance fetch error:", error);
+      alert("Performance records load nahi ho rahe. Backend check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPerformance();
+  }, []);
+
   const filteredRecords = useMemo(() => {
     return records.filter((item) => {
+      const keyword = search.toLowerCase();
+
       const matchSearch =
-        item.id.toLowerCase().includes(search.toLowerCase()) ||
-        item.employeeId.toLowerCase().includes(search.toLowerCase()) ||
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.department.toLowerCase().includes(search.toLowerCase()) ||
-        item.designation.toLowerCase().includes(search.toLowerCase());
+        String(item.id || "").toLowerCase().includes(keyword) ||
+        String(item.employeeId || "").toLowerCase().includes(keyword) ||
+        String(item.employeeName || "").toLowerCase().includes(keyword) ||
+        String(item.department || "").toLowerCase().includes(keyword) ||
+        String(item.designation || "").toLowerCase().includes(keyword);
 
       const matchDepartment =
         departmentFilter === "All Departments" ||
         item.department === departmentFilter;
 
       const matchStatus =
-        statusFilter === "All Status" || item.status === statusFilter;
+        statusFilter === "All Status" ||
+        item.performanceStatus === statusFilter;
 
       return matchSearch && matchDepartment && matchStatus;
     });
@@ -127,43 +101,73 @@ export default function Performance() {
     currentPage * rowsPerPage
   );
 
-  const excellentCount = records.filter((item) => item.status === "Excellent").length;
+  const excellentCount = records.filter(
+    (item) => item.performanceStatus === "Excellent"
+  ).length;
 
-  const averageScore = Math.round(
-    records.reduce((sum, item) => sum + Number(item.score), 0) / records.length
-  );
+  const averageScore =
+    records.length > 0
+      ? Math.round(
+          records.reduce(
+            (sum, item) => sum + Number(item.performanceScore || 0),
+            0
+          ) / records.length
+        )
+      : 0;
 
   const topEmployee =
     records.length > 0
       ? records.reduce((prev, curr) =>
-          Number(curr.score) > Number(prev.score) ? curr : prev
+          Number(curr.performanceScore || 0) >
+          Number(prev.performanceScore || 0)
+            ? curr
+            : prev
         )
       : null;
 
-  const openAddModal = () => {
+  const resetForm = () => {
     setEditingData(null);
     setViewData(null);
     setFormData({
       employeeId: "",
-      name: "",
+      employeeName: "",
       department: "IT Department",
       designation: "",
       rating: "",
-      score: "",
+      performanceScore: "",
       attendance: "",
       completedTasks: "",
       pendingTasks: "",
-      status: "Good",
+      performanceStatus: "Good",
       reviewDate: "",
       managerComments: "",
     });
+  };
+
+  const openAddModal = () => {
+    resetForm();
     setShowModal(true);
   };
 
   const openEditModal = (item) => {
     setViewData(null);
     setEditingData(item);
-    setFormData({ ...item });
+
+    setFormData({
+      employeeId: item.employeeId || "",
+      employeeName: item.employeeName || "",
+      department: item.department || "IT Department",
+      designation: item.designation || "",
+      rating: item.rating || "",
+      performanceScore: item.performanceScore || "",
+      attendance: item.attendance || "",
+      completedTasks: item.completedTasks || "",
+      pendingTasks: item.pendingTasks || "",
+      performanceStatus: item.performanceStatus || "Good",
+      reviewDate: item.reviewDate || "",
+      managerComments: item.managerComments || "",
+    });
+
     setShowModal(true);
   };
 
@@ -173,60 +177,64 @@ export default function Performance() {
     setViewData(item);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (
       !formData.employeeId ||
-      !formData.name ||
+      !formData.employeeName ||
       !formData.designation ||
       !formData.rating ||
-      !formData.score ||
+      !formData.performanceScore ||
       !formData.reviewDate
     ) {
       alert("Please fill required fields");
       return;
     }
 
-    if (editingData) {
-      setRecords((prev) =>
-        prev.map((item) =>
-          item.id === editingData.id
-            ? {
-                ...item,
-                ...formData,
-                rating: Number(formData.rating),
-                score: Number(formData.score),
-                attendance: Number(formData.attendance),
-                completedTasks: Number(formData.completedTasks),
-                pendingTasks: Number(formData.pendingTasks),
-              }
-            : item
-        )
-      );
-    } else {
-      const newId = `PER${String(records.length + 1).padStart(3, "0")}`;
+    const payload = {
+      employeeId: Number(formData.employeeId),
+      employeeName: formData.employeeName,
+      department: formData.department,
+      designation: formData.designation,
+      rating: Number(formData.rating),
+      performanceScore: Number(formData.performanceScore),
+      attendance: Number(formData.attendance) || 0,
+      completedTasks: Number(formData.completedTasks) || 0,
+      pendingTasks: Number(formData.pendingTasks) || 0,
+      performanceStatus: formData.performanceStatus,
+      reviewDate: formData.reviewDate,
+      managerComments: formData.managerComments,
+    };
 
-      setRecords((prev) => [
-        ...prev,
-        {
-          id: newId,
-          ...formData,
-          rating: Number(formData.rating),
-          score: Number(formData.score),
-          attendance: Number(formData.attendance),
-          completedTasks: Number(formData.completedTasks),
-          pendingTasks: Number(formData.pendingTasks),
-        },
-      ]);
+    try {
+      if (editingData) {
+        await API.put(`/performance/${editingData.id}`, payload);
+        alert("Performance updated successfully");
+      } else {
+        await API.post("/performance", payload);
+        alert("Performance added successfully");
+      }
+
+      setShowModal(false);
+      resetForm();
+      fetchPerformance();
+    } catch (error) {
+      console.error("Performance save error:", error);
+      alert("Performance save nahi ho raha. Backend fields check karo.");
     }
-
-    setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this record?")) {
-      setRecords((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
+
+    try {
+      await API.delete(`/performance/${id}`);
+      alert("Performance deleted successfully");
+      fetchPerformance();
+    } catch (error) {
+      console.error("Performance delete error:", error);
+      alert("Performance delete nahi ho raha. Backend check karo.");
     }
   };
 
@@ -347,36 +355,57 @@ export default function Performance() {
               paginatedRecords.map((item) => (
                 <tr key={item.id}>
                   <td>{item.id}</td>
+
                   <td>
-                    <strong>{item.name}</strong>
+                    <strong>{item.employeeName}</strong>
                     <small>{item.employeeId}</small>
                   </td>
+
                   <td>{item.department}</td>
                   <td>{item.designation}</td>
                   <td className="rating">{item.rating} ★</td>
+
                   <td>
-                    <span className="score-pill">{item.score}%</span>
+                    <span className="score-pill">
+                      {item.performanceScore}%
+                    </span>
                   </td>
-                  <td>{item.attendance}%</td>
+
+                  <td>{item.attendance || 0}%</td>
+
                   <td>
                     <small>Done: {item.completedTasks}</small>
                     <small>Pending: {item.pendingTasks}</small>
                   </td>
+
                   <td>
-                    <span className={getStatusClass(item.status)}>
-                      {item.status}
+                    <span className={getStatusClass(item.performanceStatus)}>
+                      {item.performanceStatus}
                     </span>
                   </td>
+
                   <td>{item.reviewDate}</td>
+
                   <td>
                     <div className="perf-actions">
-                      <button className="view" onClick={() => openViewModal(item)}>
+                      <button
+                        className="view"
+                        onClick={() => openViewModal(item)}
+                      >
                         <FaEye />
                       </button>
-                      <button className="edit" onClick={() => openEditModal(item)}>
+
+                      <button
+                        className="edit"
+                        onClick={() => openEditModal(item)}
+                      >
                         <FaEdit />
                       </button>
-                      <button className="delete" onClick={() => handleDelete(item.id)}>
+
+                      <button
+                        className="delete"
+                        onClick={() => handleDelete(item.id)}
+                      >
                         <FaTrash />
                       </button>
                     </div>
@@ -386,7 +415,7 @@ export default function Performance() {
             ) : (
               <tr>
                 <td colSpan="11" className="perf-no-data">
-                  No performance record found
+                  {loading ? "Loading..." : "No performance record found"}
                 </td>
               </tr>
             )}
@@ -447,9 +476,9 @@ export default function Performance() {
 
               <input
                 placeholder="Employee Name"
-                value={formData.name}
+                value={formData.employeeName}
                 onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
+                  setFormData({ ...formData, employeeName: e.target.value })
                 }
               />
 
@@ -488,9 +517,12 @@ export default function Performance() {
               <input
                 type="number"
                 placeholder="Performance Score %"
-                value={formData.score}
+                value={formData.performanceScore}
                 onChange={(e) =>
-                  setFormData({ ...formData, score: e.target.value })
+                  setFormData({
+                    ...formData,
+                    performanceScore: e.target.value,
+                  })
                 }
               />
 
@@ -522,9 +554,12 @@ export default function Performance() {
               />
 
               <select
-                value={formData.status}
+                value={formData.performanceStatus}
                 onChange={(e) =>
-                  setFormData({ ...formData, status: e.target.value })
+                  setFormData({
+                    ...formData,
+                    performanceStatus: e.target.value,
+                  })
                 }
               >
                 {statuses
@@ -574,13 +609,13 @@ export default function Performance() {
             <div className="perf-details">
               <p><b>Record ID:</b> {viewData.id}</p>
               <p><b>Employee ID:</b> {viewData.employeeId}</p>
-              <p><b>Name:</b> {viewData.name}</p>
+              <p><b>Name:</b> {viewData.employeeName}</p>
               <p><b>Department:</b> {viewData.department}</p>
               <p><b>Designation:</b> {viewData.designation}</p>
               <p><b>Rating:</b> {viewData.rating} ★</p>
-              <p><b>Score:</b> {viewData.score}%</p>
-              <p><b>Attendance:</b> {viewData.attendance}%</p>
-              <p><b>Status:</b> {viewData.status}</p>
+              <p><b>Score:</b> {viewData.performanceScore}%</p>
+              <p><b>Attendance:</b> {viewData.attendance || 0}%</p>
+              <p><b>Status:</b> {viewData.performanceStatus}</p>
               <p><b>Comments:</b> {viewData.managerComments}</p>
             </div>
           </div>

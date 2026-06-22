@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./Dashboard.css";
+import API from "../api/axios";
 import {
   FaUsers,
   FaUserCheck,
@@ -12,66 +13,19 @@ import {
   FaSearch,
 } from "react-icons/fa";
 
-const initialEmployees = [
-  {
-    id: "EMP001",
-    name: "Vivek Srivastava",
-    department: "IT Department",
-    designation: "Full Stack Developer",
-    email: "vivek@gmail.com",
-    status: "Active",
-    joinDate: "2026-05-12",
-  },
-  {
-    id: "EMP002",
-    name: "Rahul Sharma",
-    department: "IT Department",
-    designation: "Backend Developer",
-    email: "rahul@gmail.com",
-    status: "Active",
-    joinDate: "2026-05-13",
-  },
-  {
-    id: "EMP003",
-    name: "Priya Patel",
-    department: "HR Department",
-    designation: "HR Executive",
-    email: "priya@gmail.com",
-    status: "Inactive",
-    joinDate: "2026-05-14",
-  },
-  {
-    id: "EMP004",
-    name: "Amit Verma",
-    department: "Finance Department",
-    designation: "Accountant",
-    email: "amit@gmail.com",
-    status: "Active",
-    joinDate: "2026-05-15",
-  },
-  {
-    id: "EMP005",
-    name: "Neha Singh",
-    department: "Marketing Department",
-    designation: "Marketing Executive",
-    email: "neha@gmail.com",
-    status: "Active",
-    joinDate: "2026-05-16",
-  },
-];
-
-const initialDepartments = [
-  { id: 1, name: "IT Department", color: "#2563eb" },
-  { id: 2, name: "HR Department", color: "#22c55e" },
-  { id: 3, name: "Finance Department", color: "#f97316" },
-  { id: 4, name: "Marketing Department", color: "#7c3aed" },
-];
-
 const colors = ["#2563eb", "#22c55e", "#f97316", "#7c3aed", "#ec4899"];
 
 export default function Dashboard() {
-  const [employees, setEmployees] = useState(initialEmployees);
-  const [departmentsList, setDepartmentsList] = useState(initialDepartments);
+  const [employees, setEmployees] = useState([]);
+  const [departmentsList, setDepartmentsList] = useState([]);
+
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    totalDepartments: 0,
+    totalAttendanceRecords: 0,
+    totalPerformanceRecords: 0,
+    totalSalaryRecords: 0,
+  });
 
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState(null);
@@ -90,28 +44,89 @@ export default function Dashboard() {
     joinDate: "",
   });
 
-  const totalEmployees = employees.length;
-  const activeEmployees = employees.filter((e) => e.status === "Active").length;
-  const inactiveEmployees = employees.filter((e) => e.status === "Inactive").length;
-  const departments = departmentsList.length;
+  useEffect(() => {
+    fetchDashboardStats();
+    fetchEmployees();
+    fetchDepartments();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const res = await API.get("/dashboard/stats");
+      setStats(res.data);
+    } catch (error) {
+      console.log("Dashboard stats error:", error);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await API.get("/employees");
+      setEmployees(Array.isArray(res.data) ? res.data : res.data.content || []);
+    } catch (error) {
+      console.log("Employees fetch error:", error);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await API.get("/departments");
+
+      const data = Array.isArray(res.data) ? res.data : res.data.content || [];
+
+      const departmentsWithColor = data.map((dept, index) => ({
+        ...dept,
+        color: dept.color || colors[index % colors.length],
+      }));
+
+      setDepartmentsList(departmentsWithColor);
+    } catch (error) {
+      console.log("Departments fetch error:", error);
+    }
+  };
+
+  const totalEmployees = stats.totalEmployees || employees.length;
+
+  const activeEmployees = employees.filter(
+    (e) => e.status === "Active" || e.status === "ACTIVE"
+  ).length;
+
+  const inactiveEmployees = employees.filter(
+    (e) => e.status === "Inactive" || e.status === "INACTIVE"
+  ).length;
+
+  const departments = stats.totalDepartments || departmentsList.length;
 
   const activePercentage =
     totalEmployees > 0 ? Math.round((activeEmployees / totalEmployees) * 100) : 0;
 
-  const getDepartmentCount = (departmentName) => {
-    return employees.filter((emp) => emp.department === departmentName).length;
+  const getDepartmentName = (department) => {
+    if (!department) return "-";
+    if (typeof department === "object") return department.name;
+    return department;
   };
 
-  const conicGradient = departmentsList
-    .map((dept, index) => {
-      const start = (index / departmentsList.length) * 100;
-      const end = ((index + 1) / departmentsList.length) * 100;
-      return `${dept.color} ${start}% ${end}%`;
-    })
-    .join(", ");
+  const getDepartmentCount = (departmentName) => {
+    return employees.filter(
+      (emp) => getDepartmentName(emp.department) === departmentName
+    ).length;
+  };
+
+  const conicGradient =
+    departmentsList.length > 0
+      ? departmentsList
+          .map((dept, index) => {
+            const start = (index / departmentsList.length) * 100;
+            const end = ((index + 1) / departmentsList.length) * 100;
+            return `${dept.color} ${start}% ${end}%`;
+          })
+          .join(", ")
+      : "#e5e7eb 0% 100%";
 
   const filteredEmployees = employees.filter((emp) =>
-    `${emp.name} ${emp.department} ${emp.designation} ${emp.email}`
+    `${emp.name || ""} ${getDepartmentName(emp.department)} ${emp.designation || ""} ${
+      emp.email || ""
+    }`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -124,15 +139,6 @@ export default function Dashboard() {
       day: "numeric",
       year: "numeric",
     });
-  };
-
-  const generateEmployeeId = () => {
-    const lastNumber =
-      employees.length > 0
-        ? Math.max(...employees.map((emp) => Number(emp.id.replace("EMP", ""))))
-        : 0;
-
-    return `EMP${String(lastNumber + 1).padStart(3, "0")}`;
   };
 
   const resetForm = () => {
@@ -161,7 +167,7 @@ export default function Dashboard() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (
@@ -175,49 +181,56 @@ export default function Dashboard() {
       return;
     }
 
-    if (editId) {
-      setEmployees(
-        employees.map((emp) => (emp.id === editId ? { ...emp, ...form } : emp))
-      );
-    } else {
-      setEmployees([
-        ...employees,
-        {
-          id: generateEmployeeId(),
-          ...form,
-        },
-      ]);
-    }
+    try {
+      if (editId) {
+        await API.put(`/employees/${editId}`, form);
+      } else {
+        await API.post("/employees", form);
+      }
 
-    resetForm();
-    setShowFormModal(false);
+      resetForm();
+      setShowFormModal(false);
+      fetchEmployees();
+      fetchDashboardStats();
+    } catch (error) {
+      console.log("Employee save error:", error);
+      alert("Employee save failed");
+    }
   };
 
   const handleEdit = (emp) => {
     setEditId(emp.id);
+
     setForm({
-      name: emp.name,
-      department: emp.department,
-      designation: emp.designation,
-      email: emp.email,
-      status: emp.status,
-      joinDate: emp.joinDate,
+      name: emp.name || "",
+      department: getDepartmentName(emp.department),
+      designation: emp.designation || "",
+      email: emp.email || "",
+      status: emp.status || "Active",
+      joinDate: emp.joinDate || "",
     });
 
     setShowFormModal(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this employee?")) return;
 
-    setEmployees(employees.filter((emp) => emp.id !== id));
+    try {
+      await API.delete(`/employees/${id}`);
+      fetchEmployees();
+      fetchDashboardStats();
 
-    if (editId === id) {
-      resetForm();
+      if (editId === id) {
+        resetForm();
+      }
+    } catch (error) {
+      console.log("Employee delete error:", error);
+      alert("Employee delete failed");
     }
   };
 
-  const handleDepartmentSubmit = (e) => {
+  const handleDepartmentSubmit = async (e) => {
     e.preventDefault();
 
     if (!deptName.trim()) {
@@ -225,34 +238,26 @@ export default function Dashboard() {
       return;
     }
 
-    if (deptEditId) {
-      const oldDept = departmentsList.find((dept) => dept.id === deptEditId);
-
-      setDepartmentsList(
-        departmentsList.map((dept) =>
-          dept.id === deptEditId ? { ...dept, name: deptName } : dept
-        )
-      );
-
-      setEmployees(
-        employees.map((emp) =>
-          emp.department === oldDept.name ? { ...emp, department: deptName } : emp
-        )
-      );
+    try {
+      if (deptEditId) {
+        await API.put(`/departments/${deptEditId}`, {
+          name: deptName,
+        });
+      } else {
+        await API.post("/departments", {
+          name: deptName,
+        });
+      }
 
       setDeptEditId(null);
-    } else {
-      setDepartmentsList([
-        ...departmentsList,
-        {
-          id: Date.now(),
-          name: deptName,
-          color: colors[departmentsList.length % colors.length],
-        },
-      ]);
+      setDeptName("");
+      fetchDepartments();
+      fetchEmployees();
+      fetchDashboardStats();
+    } catch (error) {
+      console.log("Department save error:", error);
+      alert("Department save failed");
     }
-
-    setDeptName("");
   };
 
   const handleDepartmentEdit = (dept) => {
@@ -260,9 +265,9 @@ export default function Dashboard() {
     setDeptName(dept.name);
   };
 
-  const handleDepartmentDelete = (dept) => {
+  const handleDepartmentDelete = async (dept) => {
     const usedEmployees = employees.filter(
-      (emp) => emp.department === dept.name
+      (emp) => getDepartmentName(emp.department) === dept.name
     ).length;
 
     if (usedEmployees > 0) {
@@ -270,11 +275,19 @@ export default function Dashboard() {
       return;
     }
 
-    setDepartmentsList(departmentsList.filter((item) => item.id !== dept.id));
+    try {
+      await API.delete(`/departments/${dept.id}`);
 
-    if (deptEditId === dept.id) {
-      setDeptEditId(null);
-      setDeptName("");
+      if (deptEditId === dept.id) {
+        setDeptEditId(null);
+        setDeptName("");
+      }
+
+      fetchDepartments();
+      fetchDashboardStats();
+    } catch (error) {
+      console.log("Department delete error:", error);
+      alert("Department delete failed");
     }
   };
 
@@ -286,7 +299,14 @@ export default function Dashboard() {
           <p>Here’s what’s happening with your organization today.</p>
         </div>
 
-        <div className="date-pill">Wednesday, May 28, 2026</div>
+        <div className="date-pill">
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </div>
       </div>
 
       <div className="stats-grid">
@@ -297,7 +317,7 @@ export default function Dashboard() {
           <div>
             <p>Total Employees</p>
             <h2>{totalEmployees}</h2>
-            <span>+12% from last month</span>
+            <span>Live from backend</span>
           </div>
         </div>
 
@@ -308,7 +328,7 @@ export default function Dashboard() {
           <div>
             <p>Active Employees</p>
             <h2>{activeEmployees}</h2>
-            <span>+8% from last month</span>
+            <span>Live status count</span>
           </div>
         </div>
 
@@ -319,7 +339,7 @@ export default function Dashboard() {
           <div>
             <p>Inactive Employees</p>
             <h2>{inactiveEmployees}</h2>
-            <span>-3% from last month</span>
+            <span>Live status count</span>
           </div>
         </div>
 
@@ -330,7 +350,7 @@ export default function Dashboard() {
           <div>
             <p>Departments</p>
             <h2>{departments}</h2>
-            <span>+2 this month</span>
+            <span>Live from backend</span>
           </div>
         </div>
       </div>
@@ -413,11 +433,11 @@ export default function Dashboard() {
 
           {employees.slice(0, 4).map((emp) => (
             <div className="recent-row" key={emp.id}>
-              <div className="avatar">{emp.name.charAt(0)}</div>
+              <div className="avatar">{emp.name?.charAt(0)}</div>
 
               <div className="recent-info">
                 <h4>{emp.name}</h4>
-                <p>{emp.department}</p>
+                <p>{getDepartmentName(emp.department)}</p>
               </div>
 
               <span>{formatDate(emp.joinDate)}</span>
@@ -490,15 +510,15 @@ export default function Dashboard() {
                 {filteredEmployees.length > 0 ? (
                   filteredEmployees.map((emp) => (
                     <tr key={emp.id}>
-                      <td>{emp.id}</td>
+                      <td>{emp.employeeCode || emp.id}</td>
                       <td>{emp.name}</td>
-                      <td>{emp.department}</td>
+                      <td>{getDepartmentName(emp.department)}</td>
                       <td>{emp.designation}</td>
                       <td>{emp.email}</td>
                       <td>
                         <span
                           className={
-                            emp.status === "Active"
+                            emp.status === "Active" || emp.status === "ACTIVE"
                               ? "badge active"
                               : "badge inactive"
                           }
@@ -551,7 +571,9 @@ export default function Dashboard() {
           </div>
 
           <div className="table-footer">
-            <p>Showing 1 to {filteredEmployees.length} of {employees.length} employees</p>
+            <p>
+              Showing 1 to {filteredEmployees.length} of {employees.length} employees
+            </p>
           </div>
         </div>
       </div>
@@ -638,13 +660,13 @@ export default function Dashboard() {
             <h3>Employee Details</h3>
 
             <p>
-              <b>ID:</b> {viewEmployee.id}
+              <b>ID:</b> {viewEmployee.employeeCode || viewEmployee.id}
             </p>
             <p>
               <b>Name:</b> {viewEmployee.name}
             </p>
             <p>
-              <b>Department:</b> {viewEmployee.department}
+              <b>Department:</b> {getDepartmentName(viewEmployee.department)}
             </p>
             <p>
               <b>Designation:</b> {viewEmployee.designation}

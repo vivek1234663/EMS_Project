@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaPlus,
   FaSearch,
@@ -12,79 +12,12 @@ import {
   FaUserTimes,
   FaClock,
 } from "react-icons/fa";
+import API from "../api/api";
 import "./Attendance.css";
 
-const initialAttendance = [
-  {
-    id: "ATT001",
-    employeeId: "EMP001",
-    name: "Vivek Srivastava",
-    department: "IT Department",
-    date: "2026-05-28",
-    checkIn: "09:30",
-    checkOut: "18:15",
-    status: "Present",
-    workMode: "Office",
-  },
-  {
-    id: "ATT002",
-    employeeId: "EMP002",
-    name: "Rahul Sharma",
-    department: "IT Department",
-    date: "2026-05-28",
-    checkIn: "09:55",
-    checkOut: "18:00",
-    status: "Late",
-    workMode: "Office",
-  },
-  {
-    id: "ATT003",
-    employeeId: "EMP003",
-    name: "Priya Patel",
-    department: "HR Department",
-    date: "2026-05-28",
-    checkIn: "",
-    checkOut: "",
-    status: "Absent",
-    workMode: "Office",
-  },
-  {
-    id: "ATT004",
-    employeeId: "EMP004",
-    name: "Amit Verma",
-    department: "Finance Department",
-    date: "2026-05-28",
-    checkIn: "09:40",
-    checkOut: "18:10",
-    status: "Present",
-    workMode: "Remote",
-  },
-  {
-    id: "ATT005",
-    employeeId: "EMP005",
-    name: "Neha Singh",
-    department: "Marketing Department",
-    date: "2026-05-29",
-    checkIn: "10:05",
-    checkOut: "18:20",
-    status: "Late",
-    workMode: "Hybrid",
-  },
-  {
-    id: "ATT006",
-    employeeId: "EMP006",
-    name: "Rohan Gupta",
-    department: "IT Department",
-    date: "2026-05-29",
-    checkIn: "09:20",
-    checkOut: "18:00",
-    status: "Present",
-    workMode: "Office",
-  },
-];
-
 export default function Attendance() {
-  const [attendance, setAttendance] = useState(initialAttendance);
+  const [attendance, setAttendance] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("All Departments");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -119,13 +52,32 @@ export default function Attendance() {
   const statuses = ["All Status", "Present", "Late", "Absent"];
   const workModes = ["Office", "Remote", "Hybrid"];
 
+  const fetchAttendance = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/attendance");
+      setAttendance(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Attendance fetch error:", error);
+      alert("Attendance load nahi ho rahi. Backend check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAttendance();
+  }, []);
+
   const filteredAttendance = useMemo(() => {
     return attendance.filter((item) => {
+      const keyword = search.toLowerCase();
+
       const matchSearch =
-        item.id.toLowerCase().includes(search.toLowerCase()) ||
-        item.employeeId.toLowerCase().includes(search.toLowerCase()) ||
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.department.toLowerCase().includes(search.toLowerCase());
+        String(item.id || "").toLowerCase().includes(keyword) ||
+        String(item.employeeId || "").toLowerCase().includes(keyword) ||
+        String(item.name || "").toLowerCase().includes(keyword) ||
+        String(item.department || "").toLowerCase().includes(keyword);
 
       const matchDepartment =
         departmentFilter === "All Departments" ||
@@ -151,7 +103,7 @@ export default function Attendance() {
   const lateCount = attendance.filter((item) => item.status === "Late").length;
   const absentCount = attendance.filter((item) => item.status === "Absent").length;
 
-  const openAddModal = () => {
+  const resetForm = () => {
     setEditingData(null);
     setViewData(null);
     setFormData({
@@ -164,6 +116,10 @@ export default function Attendance() {
       status: "Present",
       workMode: "Office",
     });
+  };
+
+  const openAddModal = () => {
+    resetForm();
     setShowModal(true);
   };
 
@@ -171,14 +127,14 @@ export default function Attendance() {
     setViewData(null);
     setEditingData(item);
     setFormData({
-      employeeId: item.employeeId,
-      name: item.name,
-      department: item.department,
-      date: item.date,
-      checkIn: item.checkIn,
-      checkOut: item.checkOut,
-      status: item.status,
-      workMode: item.workMode,
+      employeeId: item.employeeId || "",
+      name: item.name || "",
+      department: item.department || "IT Department",
+      date: item.date || "",
+      checkIn: item.checkIn || "",
+      checkOut: item.checkOut || "",
+      status: item.status || "Present",
+      workMode: item.workMode || "Office",
     });
     setShowModal(true);
   };
@@ -189,7 +145,7 @@ export default function Attendance() {
     setViewData(item);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.employeeId || !formData.name || !formData.department || !formData.date) {
@@ -197,36 +153,47 @@ export default function Attendance() {
       return;
     }
 
-    const finalData = {
-      ...formData,
+    const payload = {
+      employeeId: formData.employeeId,
+      name: formData.name,
+      department: formData.department,
+      date: formData.date,
       checkIn: formData.status === "Absent" ? "" : formData.checkIn,
       checkOut: formData.status === "Absent" ? "" : formData.checkOut,
+      status: formData.status,
+      workMode: formData.workMode,
     };
 
-    if (editingData) {
-      setAttendance((prev) =>
-        prev.map((item) =>
-          item.id === editingData.id ? { ...item, ...finalData } : item
-        )
-      );
-    } else {
-      const newId = `ATT${String(attendance.length + 1).padStart(3, "0")}`;
+    try {
+      if (editingData) {
+        await API.put(`/attendance/${editingData.id}`, payload);
+        alert("Attendance updated successfully");
+      } else {
+        await API.post("/attendance", payload);
+        alert("Attendance added successfully");
+      }
 
-      setAttendance((prev) => [
-        ...prev,
-        {
-          id: newId,
-          ...finalData,
-        },
-      ]);
+      setShowModal(false);
+      resetForm();
+      fetchAttendance();
+    } catch (error) {
+      console.error("Attendance save error:", error);
+      alert("Attendance save nahi ho rahi. Backend fields check karo.");
     }
-
-    setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this attendance record?")) {
-      setAttendance((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this attendance record?")) {
+      return;
+    }
+
+    try {
+      await API.delete(`/attendance/${id}`);
+      alert("Attendance deleted successfully");
+      fetchAttendance();
+    } catch (error) {
+      console.error("Attendance delete error:", error);
+      alert("Attendance delete nahi ho rahi. Backend check karo.");
     }
   };
 
@@ -407,7 +374,7 @@ export default function Attendance() {
             ) : (
               <tr>
                 <td colSpan="10" className="attendance-no-data">
-                  No attendance record found
+                  {loading ? "Loading..." : "No attendance record found"}
                 </td>
               </tr>
             )}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaPlus,
   FaSearch,
@@ -10,26 +10,17 @@ import {
   FaTimes,
   FaSave,
 } from "react-icons/fa";
+import API from "../api/api";
 import "./Designations.css";
 
-const initialData = [
-  { id: "DES001", name: "Full Stack Developer", department: "IT Department", employees: 12 },
-  { id: "DES002", name: "Backend Developer", department: "IT Department", employees: 6 },
-  { id: "DES003", name: "UI/UX Designer", department: "IT Department", employees: 4 },
-  { id: "DES004", name: "System Analyst", department: "IT Department", employees: 5 },
-  { id: "DES005", name: "HR Executive", department: "HR Department", employees: 10 },
-  { id: "DES006", name: "HR Manager", department: "HR Department", employees: 3 },
-  { id: "DES007", name: "Accountant", department: "Finance Department", employees: 7 },
-  { id: "DES008", name: "Marketing Executive", department: "Marketing Department", employees: 8 },
-];
-
 export default function Designations() {
-  const [designations, setDesignations] = useState(initialData);
+  const [designations, setDesignations] = useState([]);
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("All Departments");
   const [showModal, setShowModal] = useState(false);
   const [editingData, setEditingData] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -47,12 +38,31 @@ export default function Designations() {
     "Marketing Department",
   ];
 
+  const fetchDesignations = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/designations");
+      setDesignations(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Designation fetch error:", error);
+      alert("Designations load nahi ho rahe. Backend check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDesignations();
+  }, []);
+
   const filteredData = useMemo(() => {
     return designations.filter((item) => {
       const matchSearch =
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.id.toLowerCase().includes(search.toLowerCase()) ||
-        item.department.toLowerCase().includes(search.toLowerCase());
+        String(item.name || "").toLowerCase().includes(search.toLowerCase()) ||
+        String(item.id || "").toLowerCase().includes(search.toLowerCase()) ||
+        String(item.department || "")
+          .toLowerCase()
+          .includes(search.toLowerCase());
 
       const matchDepartment =
         departmentFilter === "All Departments" ||
@@ -70,7 +80,7 @@ export default function Designations() {
   );
 
   const totalEmployees = designations.reduce(
-    (sum, item) => sum + Number(item.employees),
+    (sum, item) => sum + Number(item.employees || 0),
     0
   );
 
@@ -87,62 +97,64 @@ export default function Designations() {
   const openEditModal = (item) => {
     setEditingData(item);
     setFormData({
-      name: item.name,
-      department: item.department,
-      employees: item.employees,
+      name: item.name || "",
+      department: item.department || "IT Department",
+      employees: item.employees || "",
     });
     setShowModal(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.department || !formData.employees) {
+    if (!formData.name.trim() || !formData.department.trim()) {
       alert("Please fill all fields");
       return;
     }
 
-    if (editingData) {
-      setDesignations((prev) =>
-        prev.map((item) =>
-          item.id === editingData.id
-            ? {
-                ...item,
-                name: formData.name,
-                department: formData.department,
-                employees: Number(formData.employees),
-              }
-            : item
-        )
-      );
-    } else {
-      const newId = `DES${String(designations.length + 1).padStart(3, "0")}`;
+    const payload = {
+      name: formData.name,
+      department: formData.department,
+      employees: Number(formData.employees) || 0,
+    };
 
-      setDesignations((prev) => [
-        ...prev,
-        {
-          id: newId,
-          name: formData.name,
-          department: formData.department,
-          employees: Number(formData.employees),
-        },
-      ]);
+    try {
+      if (editingData) {
+        await API.put(`/designations/${editingData.id}`, payload);
+        alert("Designation updated successfully");
+      } else {
+        await API.post("/designations", payload);
+        alert("Designation added successfully");
+      }
+
+      setShowModal(false);
+      fetchDesignations();
+    } catch (error) {
+      console.error("Designation save error:", error);
+      alert("Designation save nahi ho raha. Backend fields check karo.");
     }
-
-    setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this designation?")) {
-      setDesignations((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this designation?")) {
+      return;
+    }
+
+    try {
+      await API.delete(`/designations/${id}`);
+      alert("Designation deleted successfully");
+      fetchDesignations();
+    } catch (error) {
+      console.error("Designation delete error:", error);
+      alert("Designation delete nahi ho raha. Backend check karo.");
     }
   };
 
   const getBadgeClass = (department) => {
-    if (department.includes("IT")) return "badge it";
-    if (department.includes("HR")) return "badge hr";
-    if (department.includes("Finance")) return "badge finance";
-    if (department.includes("Marketing")) return "badge marketing";
+    if (department?.includes("IT")) return "badge it";
+    if (department?.includes("HR")) return "badge hr";
+    if (department?.includes("Finance")) return "badge finance";
+    if (department?.includes("Marketing")) return "badge marketing";
     return "badge";
   };
 
@@ -239,21 +251,34 @@ export default function Designations() {
               paginatedData.map((item) => (
                 <tr key={item.id}>
                   <td>{item.id}</td>
+
                   <td className="designation-name">{item.name}</td>
+
                   <td>
                     <span className={getBadgeClass(item.department)}>
                       {item.department}
                     </span>
                   </td>
+
                   <td>
-                    <span className="employee-count">{item.employees}</span>
+                    <span className="employee-count">
+                      {item.employees || 0}
+                    </span>
                   </td>
+
                   <td>
                     <div className="action-buttons">
-                      <button className="edit-btn" onClick={() => openEditModal(item)}>
+                      <button
+                        className="edit-btn"
+                        onClick={() => openEditModal(item)}
+                      >
                         <FaEdit />
                       </button>
-                      <button className="delete-btn" onClick={() => handleDelete(item.id)}>
+
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDelete(item.id)}
+                      >
                         <FaTrash />
                       </button>
                     </div>
@@ -263,7 +288,7 @@ export default function Designations() {
             ) : (
               <tr>
                 <td colSpan="5" className="no-data">
-                  No designation found
+                  {loading ? "Loading..." : "No designation found"}
                 </td>
               </tr>
             )}
@@ -308,6 +333,7 @@ export default function Designations() {
           <div className="designation-modal">
             <div className="modal-header">
               <h2>{editingData ? "Edit Designation" : "Add Designation"}</h2>
+
               <button onClick={() => setShowModal(false)}>
                 <FaTimes />
               </button>

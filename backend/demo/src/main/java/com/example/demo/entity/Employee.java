@@ -4,14 +4,19 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
+@Table(name = "employees")
 public class Employee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false, unique = true)
     private String email;
+
     private String phone;
     private String department;
     private String designation;
@@ -33,6 +38,21 @@ public class Employee {
         this.salary = salary;
         this.joiningDate = joiningDate;
         this.status = status;
+    }
+
+    @PrePersist
+    public void setDefaultValues() {
+        if (joiningDate == null) {
+            joiningDate = LocalDate.now();
+        }
+
+        if (status == null || status.isBlank()) {
+            status = "Active";
+        }
+
+        if (salary == null) {
+            salary = 0.0;
+        }
     }
 
     public Long getId() {

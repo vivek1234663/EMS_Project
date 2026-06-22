@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/api";
+import "./AddEmployee.css";
 
 export default function AddEmployee() {
   const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -17,13 +20,45 @@ export default function AddEmployee() {
   });
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await API.post("/employees", form);
-    navigate("/employees");
+
+    if (
+      !form.name ||
+      !form.email ||
+      !form.department ||
+      !form.designation
+    ) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await API.post("/employees", {
+        ...form,
+        salary: Number(form.salary),
+      });
+
+      alert("Employee added successfully");
+
+      navigate("/employees");
+    } catch (error) {
+      console.error(error);
+      alert(
+        error?.response?.data?.message ||
+          "Failed to add employee"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,20 +66,77 @@ export default function AddEmployee() {
       <h1>Add Employee</h1>
 
       <form className="form-card" onSubmit={handleSubmit}>
-        <input name="name" placeholder="Employee Name" onChange={handleChange} />
-        <input name="email" placeholder="Email" onChange={handleChange} />
-        <input name="phone" placeholder="Phone" onChange={handleChange} />
-        <input name="department" placeholder="Department" onChange={handleChange} />
-        <input name="designation" placeholder="Designation" onChange={handleChange} />
-        <input name="salary" placeholder="Salary" onChange={handleChange} />
-        <input type="date" name="joiningDate" onChange={handleChange} />
+        <input
+          type="text"
+          name="name"
+          placeholder="Employee Name"
+          value={form.name}
+          onChange={handleChange}
+          required
+        />
 
-        <select name="status" onChange={handleChange}>
+        <input
+          type="email"
+          name="email"
+          placeholder="Email Address"
+          value={form.email}
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          type="text"
+          name="phone"
+          placeholder="Phone Number"
+          value={form.phone}
+          onChange={handleChange}
+        />
+
+        <input
+          type="text"
+          name="department"
+          placeholder="Department"
+          value={form.department}
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          type="text"
+          name="designation"
+          placeholder="Designation"
+          value={form.designation}
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          type="number"
+          name="salary"
+          placeholder="Salary"
+          value={form.salary}
+          onChange={handleChange}
+        />
+
+        <input
+          type="date"
+          name="joiningDate"
+          value={form.joiningDate}
+          onChange={handleChange}
+        />
+
+        <select
+          name="status"
+          value={form.status}
+          onChange={handleChange}
+        >
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
 
-        <button type="submit">Save Employee</button>
+        <button type="submit" disabled={loading}>
+          {loading ? "Saving..." : "Save Employee"}
+        </button>
       </form>
     </div>
   );

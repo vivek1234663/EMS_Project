@@ -1,13 +1,25 @@
+import { useNavigate } from "react-router-dom";
 import "./Navbar.css";
-import { FaBars, FaBell, FaSearch } from "react-icons/fa";
+import { FaBars, FaBell, FaSearch, FaSignOutAlt } from "react-icons/fa";
 
 export default function Navbar() {
+  const navigate = useNavigate();
+
+  const handleLogout = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+
   return (
     <nav className="navbar">
       <div className="nav-left">
         <FaBars className="menu-icon" />
         <div>
-        <h3 className="brand-title">Employee Management System</h3>
+          <h3 className="brand-title">Employee Management System</h3>
         </div>
       </div>
 
@@ -29,6 +41,11 @@ export default function Navbar() {
             <p>Admin</p>
           </div>
         </div>
+
+        <button className="logout-btn-nav" onClick={handleLogout}>
+          <FaSignOutAlt />
+          Logout
+        </button>
       </div>
     </nav>
   );

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 export default function Register() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [form, setForm] = useState({
     name: "",
@@ -16,11 +18,21 @@ export default function Register() {
     e.preventDefault();
 
     try {
-      await API.post("/auth/register", form);
+      const res = await API.post("/auth/register", form);
+
+      const user = {
+        name: form.name,
+        email: form.email,
+        role: res.data.role,
+      };
+
+      login(user, res.data.token);
+
       alert("Registration successful");
-      navigate("/login");
-    } catch {
-      alert("Registration failed");
+      navigate("/dashboard");
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Registration failed");
     }
   };
 
@@ -32,25 +44,39 @@ export default function Register() {
 
         <input
           placeholder="Full Name"
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          value={form.name}
+          onChange={(e) =>
+            setForm({ ...form, name: e.target.value })
+          }
           required
         />
 
         <input
           type="email"
           placeholder="Email Address"
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          value={form.email}
+          onChange={(e) =>
+            setForm({ ...form, email: e.target.value })
+          }
           required
         />
 
         <input
           type="password"
           placeholder="Password"
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          value={form.password}
+          onChange={(e) =>
+            setForm({ ...form, password: e.target.value })
+          }
           required
         />
 
-        <select onChange={(e) => setForm({ ...form, role: e.target.value })}>
+        <select
+          value={form.role}
+          onChange={(e) =>
+            setForm({ ...form, role: e.target.value })
+          }
+        >
           <option value="ADMIN">ADMIN</option>
           <option value="HR">HR</option>
           <option value="EMPLOYEE">EMPLOYEE</option>

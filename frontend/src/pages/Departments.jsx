@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import API from "../api/api";
 import {
   FaPlus,
   FaSearch,
@@ -12,16 +13,9 @@ import {
 } from "react-icons/fa";
 import "./Departments.css";
 
-const initialDepartments = [
-  { id: "DEP001", department: "IT Department", head: "Vivek Srivastava", employees: 41 },
-  { id: "DEP002", department: "HR Department", head: "Neha Gupta", employees: 22 },
-  { id: "DEP003", department: "Finance Department", head: "Anjali Verma", employees: 19 },
-  { id: "DEP004", department: "Marketing Department", head: "Rahul Sharma", employees: 14 },
-  { id: "DEP005", department: "Sales Department", head: "Amit Verma", employees: 18 },
-];
-
 export default function Departments() {
-  const [departments, setDepartments] = useState(initialDepartments);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingData, setEditingData] = useState(null);
@@ -35,9 +29,30 @@ export default function Departments() {
 
   const rowsPerPage = 4;
 
+  const fetchDepartments = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/departments");
+      setDepartments(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Departments fetch error:", error);
+      alert("Departments load nahi ho rahe. Backend check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  const getDepartmentName = (item) => item.department || item.name || "";
+  const getDepartmentHead = (item) => item.head || item.departmentHead || "";
+  const getEmployeeCount = (item) => item.employees || item.employeeCount || 0;
+
   const filteredDepartments = useMemo(() => {
     return departments.filter((item) =>
-      `${item.id} ${item.department} ${item.head} ${item.employees}`
+      `${item.id} ${getDepartmentName(item)} ${getDepartmentHead(item)} ${getEmployeeCount(item)}`
         .toLowerCase()
         .includes(search.toLowerCase())
     );
@@ -51,71 +66,81 @@ export default function Departments() {
   );
 
   const totalEmployees = departments.reduce(
-    (sum, item) => sum + Number(item.employees),
+    (sum, item) => sum + Number(getEmployeeCount(item)),
     0
   );
 
-  const openAddModal = () => {
+  const resetForm = () => {
     setEditingData(null);
     setFormData({
       department: "",
       head: "",
       employees: "",
     });
+  };
+
+  const openAddModal = () => {
+    resetForm();
     setShowModal(true);
   };
 
   const openEditModal = (item) => {
     setEditingData(item);
     setFormData({
-      department: item.department,
-      head: item.head,
-      employees: item.employees,
+      department: getDepartmentName(item),
+      head: getDepartmentHead(item),
+      employees: getEmployeeCount(item),
     });
     setShowModal(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.department || !formData.head || !formData.employees) {
-      alert("Please fill all fields");
+    if (!formData.department.trim() || !formData.head.trim()) {
+      alert("Please fill department name and head");
       return;
     }
 
-    if (editingData) {
-      setDepartments((prev) =>
-        prev.map((item) =>
-          item.id === editingData.id
-            ? {
-                ...item,
-                department: formData.department,
-                head: formData.head,
-                employees: Number(formData.employees),
-              }
-            : item
-        )
-      );
-    } else {
-      const newId = `DEP${String(departments.length + 1).padStart(3, "0")}`;
+    const payload = {
+      department: formData.department,
+      name: formData.department,
+      head: formData.head,
+      departmentHead: formData.head,
+      employees: Number(formData.employees) || 0,
+      employeeCount: Number(formData.employees) || 0,
+    };
 
-      setDepartments((prev) => [
-        ...prev,
-        {
-          id: newId,
-          department: formData.department,
-          head: formData.head,
-          employees: Number(formData.employees),
-        },
-      ]);
+    try {
+      if (editingData) {
+        await API.put(`/departments/${editingData.id}`, payload);
+        alert("Department updated successfully");
+      } else {
+        await API.post("/departments", payload);
+        alert("Department added successfully");
+      }
+
+      setShowModal(false);
+      resetForm();
+      fetchDepartments();
+    } catch (error) {
+      console.error("Department save error:", error);
+      alert("Department save nahi ho raha. Backend fields check karo.");
     }
-
-    setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this department?")) {
-      setDepartments((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this department?")) {
+      return;
+    }
+
+    try {
+      await API.delete(`/departments/${id}`);
+      alert("Department deleted successfully");
+      fetchDepartments();
+    } catch (error) {
+      console.error("Department delete error:", error);
+      alert("Department delete nahi ho raha. Backend check karo.");
     }
   };
 
@@ -200,18 +225,26 @@ export default function Departments() {
               paginatedDepartments.map((item) => (
                 <tr key={item.id}>
                   <td>{item.id}</td>
-                  <td className="dept-name">{item.department}</td>
-                  <td className="dept-head">{item.head}</td>
+                  <td className="dept-name">{getDepartmentName(item)}</td>
+                  <td className="dept-head">{getDepartmentHead(item)}</td>
                   <td>
-                    <span className="dept-employee-pill">{item.employees}</span>
+                    <span className="dept-employee-pill">
+                      {getEmployeeCount(item)}
+                    </span>
                   </td>
                   <td>
                     <div className="dept-actions">
-                      <button className="dept-edit-btn" onClick={() => openEditModal(item)}>
+                      <button
+                        className="dept-edit-btn"
+                        onClick={() => openEditModal(item)}
+                      >
                         <FaEdit />
                       </button>
 
-                      <button className="dept-delete-btn" onClick={() => handleDelete(item.id)}>
+                      <button
+                        className="dept-delete-btn"
+                        onClick={() => handleDelete(item.id)}
+                      >
                         <FaTrash />
                       </button>
                     </div>
@@ -221,7 +254,7 @@ export default function Departments() {
             ) : (
               <tr>
                 <td className="dept-no-data" colSpan="5">
-                  No department found
+                  {loading ? "Loading..." : "No department found"}
                 </td>
               </tr>
             )}
@@ -230,7 +263,8 @@ export default function Departments() {
 
         <div className="dept-pagination">
           <p>
-            Showing {paginatedDepartments.length} of {filteredDepartments.length} departments
+            Showing {paginatedDepartments.length} of{" "}
+            {filteredDepartments.length} departments
           </p>
 
           <div className="dept-page-buttons">

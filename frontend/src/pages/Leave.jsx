@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./Leave.css";
+import API from "../api/api";
 import {
   FaEye,
   FaEdit,
@@ -12,47 +13,9 @@ import {
   FaTimesCircle,
 } from "react-icons/fa";
 
-const initialLeaves = [
-  {
-    id: "LEV001",
-    employeeId: "EMP001",
-    name: "Vivek Srivastava",
-    department: "IT Department",
-    leaveType: "Casual Leave",
-    fromDate: "2026-05-28",
-    toDate: "2026-05-29",
-    days: 2,
-    reason: "Personal work",
-    status: "Pending",
-  },
-  {
-    id: "LEV002",
-    employeeId: "EMP002",
-    name: "Rahul Sharma",
-    department: "IT Department",
-    leaveType: "Sick Leave",
-    fromDate: "2026-05-30",
-    toDate: "2026-05-30",
-    days: 1,
-    reason: "Fever",
-    status: "Approved",
-  },
-  {
-    id: "LEV003",
-    employeeId: "EMP003",
-    name: "Priya Patel",
-    department: "HR Department",
-    leaveType: "Paid Leave",
-    fromDate: "2026-06-01",
-    toDate: "2026-06-03",
-    days: 3,
-    reason: "Family function",
-    status: "Rejected",
-  },
-];
-
 export default function Leave() {
-  const [leaves, setLeaves] = useState(initialLeaves);
+  const [leaves, setLeaves] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [departmentFilter, setDepartmentFilter] = useState("All");
@@ -72,8 +35,25 @@ export default function Leave() {
     status: "Pending",
   });
 
+  const fetchLeaves = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/leaves");
+      setLeaves(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Leave fetch error:", error);
+      alert("Leave records load nahi ho rahe. Backend check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaves();
+  }, []);
+
   const departments = useMemo(() => {
-    return ["All", ...new Set(leaves.map((item) => item.department))];
+    return ["All", ...new Set(leaves.map((item) => item.department).filter(Boolean))];
   }, [leaves]);
 
   const filteredLeaves = useMemo(() => {
@@ -107,16 +87,6 @@ export default function Leave() {
   const pendingLeaves = leaves.filter((item) => item.status === "Pending").length;
   const approvedLeaves = leaves.filter((item) => item.status === "Approved").length;
   const rejectedLeaves = leaves.filter((item) => item.status === "Rejected").length;
-
-  const generateLeaveId = () => {
-    if (leaves.length === 0) return "LEV001";
-
-    const maxNumber = Math.max(
-      ...leaves.map((item) => Number(item.id.replace("LEV", "")))
-    );
-
-    return `LEV${String(maxNumber + 1).padStart(3, "0")}`;
-  };
 
   const resetForm = () => {
     setForm({
@@ -167,7 +137,7 @@ export default function Leave() {
     setForm(updatedForm);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (
@@ -188,49 +158,83 @@ export default function Leave() {
     }
 
     const payload = {
-      id: editId || generateLeaveId(),
-      ...form,
+      employeeId: form.employeeId,
+      name: form.name,
+      department: form.department,
+      leaveType: form.leaveType,
+      fromDate: form.fromDate,
+      toDate: form.toDate,
       days: Number(form.days),
+      reason: form.reason,
+      status: form.status,
     };
 
-    if (editId) {
-      setLeaves(leaves.map((item) => (item.id === editId ? payload : item)));
-    } else {
-      setLeaves([...leaves, payload]);
-    }
+    try {
+      if (editId) {
+        await API.put(`/leaves/${editId}`, payload);
+        alert("Leave updated successfully");
+      } else {
+        await API.post("/leaves", payload);
+        alert("Leave added successfully");
+      }
 
-    resetForm();
+      resetForm();
+      fetchLeaves();
+    } catch (error) {
+      console.error("Leave save error:", error);
+      alert("Leave save nahi ho raha. Backend fields check karo.");
+    }
   };
 
   const handleEdit = (item) => {
     setEditId(item.id);
     setForm({
-      employeeId: item.employeeId,
-      name: item.name,
-      department: item.department,
-      leaveType: item.leaveType,
-      fromDate: item.fromDate,
-      toDate: item.toDate,
-      days: item.days,
-      reason: item.reason,
-      status: item.status,
+      employeeId: item.employeeId || "",
+      name: item.name || "",
+      department: item.department || "",
+      leaveType: item.leaveType || "Casual Leave",
+      fromDate: item.fromDate || "",
+      toDate: item.toDate || "",
+      days: item.days || "",
+      reason: item.reason || "",
+      status: item.status || "Pending",
     });
     setShowModal(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Delete this leave request?")) {
-      setLeaves(leaves.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this leave request?")) return;
+
+    try {
+      await API.delete(`/leaves/${id}`);
+      alert("Leave deleted successfully");
 
       if (editId === id) resetForm();
       if (viewLeave?.id === id) setViewLeave(null);
+
+      fetchLeaves();
+    } catch (error) {
+      console.error("Leave delete error:", error);
+      alert("Leave delete nahi ho raha. Backend check karo.");
     }
   };
 
-  const updateStatus = (id, status) => {
-    setLeaves(
-      leaves.map((item) => (item.id === id ? { ...item, status } : item))
-    );
+  const updateStatus = async (id, status) => {
+    try {
+      const leave = leaves.find((item) => item.id === id);
+
+      if (!leave) return;
+
+      await API.put(`/leaves/${id}`, {
+        ...leave,
+        status,
+      });
+
+      fetchLeaves();
+    } catch (error) {
+      console.error("Leave status update error:", error);
+      alert("Leave status update nahi ho raha.");
+    }
   };
 
   return (
@@ -344,7 +348,7 @@ export default function Leave() {
                   <td>{item.toDate}</td>
                   <td>{item.days}</td>
                   <td>
-                    <span className={`leave-badge ${item.status.toLowerCase()}`}>
+                    <span className={`leave-badge ${item.status?.toLowerCase()}`}>
                       {item.status}
                     </span>
                   </td>
@@ -399,7 +403,7 @@ export default function Leave() {
             ) : (
               <tr>
                 <td colSpan="11" className="leave-empty">
-                  No leave requests found.
+                  {loading ? "Loading..." : "No leave requests found."}
                 </td>
               </tr>
             )}
